@@ -1,0 +1,48 @@
+body {
+    font-family: sans-serif;
+    padding: 20px;
+    max-width: 600px;
+    margin: auto;
+}
+
+#status {
+    margin-top: 15px;
+    font-weight: bold;
+}
+
+#downloadLink {
+    display: none;
+    margin-top: 15px;
+    padding: 10px 15px;
+    background-color: #4CAF50;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+}
+
+#downloadLink:hover {
+    background-color: #45a049;
+}
+
+progress {
+    width: 100%;
+    margin-top: 5px;
+    height: 10px;
+}
+
+label {
+    margin-right: 10px;
+}
+
+select,
+input[type="file"] {
+    margin-bottom: 15px;
+    padding: 8px;
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}

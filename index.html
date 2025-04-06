@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מתמלל וידאו בדפדפן</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <h1>מתמלל וידאו פשוט (Client-Side)</h1>
+    <p>העלה קובץ וידאו (mp4, mov, avi, mkv) או אודיו (mp3, wav) כדי לקבל קובץ כתוביות (SRT).</p>
+    <p><strong>חשוב:</strong> התהליך מתבצע כולו בדפדפן שלך. שום קובץ לא נשלח לשרת. הביצועים תלויים במחשב שלך. בפעם הראשונה, הורדת מודל השפה עשויה לקחת מספר דקות.</p>
+
+    <div class="controls">
+        <label for="videoFile">בחר קובץ:</label>
+        <input type="file" id="videoFile" accept="video/*, audio/*">
+
+        <label for="languageSelect">שפת הדיבור:</label>
+        <select id="languageSelect">
+            <option value="auto">זיהוי אוטומטי</option>
+            <option value="he">עברית (Hebrew)</option>
+            <option value="ja">יפנית (Japanese)</option>
+            <option value="en">אנגלית (English)</option>
+            <!-- אפשר להוסיף עוד שפות לפי קודי ISO 639-1 -->
+        </select>
+    </div>
+
+    <div id="status">אנא בחר קובץ וידאו או אודיו.</div>
+    <progress id="progressBar" value="0" max="100" style="display: none;"></progress>
+    <div id="progressDetail" style="font-size: 0.9em; margin-top: 5px; min-height: 1.2em;"></div>
+    <a href="#" id="downloadLink" download="subtitles.srt">הורד קובץ כתוביות (SRT)</a>
+
+    <!-- טוענים את script.js כמודול -->
+    <script type="module" src="script.js"></script>
+</body>
+</html>
