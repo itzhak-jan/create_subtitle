@@ -8,11 +8,13 @@ env.allowRemoteModels = true;
 // --- קבלת רפרנסים לאלמנטים ב-HTML ---
 const videoFileInput = document.getElementById('videoFile');
 const statusDiv = document.getElementById('status');
-const downloadLink = document.getElementById('downloadLink');
 const progressBar = document.getElementById('progressBar');
 const languageSelect = document.getElementById('languageSelect');
-// *** רפרנס לאלמנט החדש ***
-const progressDetailDiv = document.getElementById('progressDetail');
+// *** שינוי: רפרנסים לשני קישורי ההורדה ***
+const downloadLinkSrt = document.getElementById('downloadLinkSrt');
+const downloadLinkTxt = document.getElementById('downloadLinkTxt');
+const downloadButtonsDiv = document.getElementById('downloadButtons'); // ה-div שעוטף
+
 
 // --- הגדרות תמלול ---
 const MODEL_NAME = 'Xenova/whisper-tiny';
@@ -20,7 +22,6 @@ const TARGET_SAMPLE_RATE = 16000;
 const TASK = 'transcribe';
 
 // --- פונקציה לעדכון הסטטוס והפרוגרס בר ---
-// (נשאיר אותה לעדכון הראשי, את הפירוט נעדכן מהקולבק)
 function updateStatus(text, progressValue = null) {
     statusDiv.textContent = text;
     if (progressValue !== null && progressValue >= 0 && progressValue <= 100) {
@@ -29,13 +30,9 @@ function updateStatus(text, progressValue = null) {
     } else {
         progressBar.style.display = 'none';
     }
-    // נקה את הפירוט כשהסטטוס הראשי מתעדכן (אלא אם זה עדכון התקדמות)
-    if (progressValue === null) {
-        progressDetailDiv.textContent = '';
-    }
 }
 
-// --- פונקציית חילוץ והמרת אודיו (עם החזרת משך) ---
+// --- פונקציית חילוץ והמרת אודיו (ללא שינוי מהגרסה הקודמת) ---
 async function extractAndResampleAudio(mediaFile) {
     updateStatus('קורא קובץ מדיה...', 0);
     let audioContext;
@@ -46,7 +43,7 @@ async function extractAndResampleAudio(mediaFile) {
         }
     } catch (e) {
         console.error("Failed to create/resume AudioContext:", e);
-        throw new Error(`שגיאה ביצירת הקשר אודיו: ${e.message}. נסה לרענן או ללחוץ על הדף.`);
+        return Promise.reject(`שגיאה ביצירת הקשר אודיו: ${e.message}. נסה לרענן או ללחוץ על הדף.`);
     }
 
     const fileReader = new FileReader();
@@ -69,17 +66,12 @@ async function extractAndResampleAudio(mediaFile) {
                     return;
                 }
 
-                // *** שמירת משך האודיו ***
-                const duration = audioBuffer.duration;
-                console.log(`Audio duration: ${duration} seconds`);
-
-                let monoAudioData;
                 if (audioBuffer.sampleRate !== TARGET_SAMPLE_RATE) {
                     console.warn(`קצב דגימה מקורי: ${audioBuffer.sampleRate}, ממיר ל-${TARGET_SAMPLE_RATE}`);
                     updateStatus(`ממיר קצב דגימה ל-${TARGET_SAMPLE_RATE}Hz...`, null);
                     const offlineContext = new OfflineAudioContext(
                         audioBuffer.numberOfChannels,
-                        duration * TARGET_SAMPLE_RATE, // השתמש במשך המחושב
+                        audioBuffer.duration * TARGET_SAMPLE_RATE,
                         TARGET_SAMPLE_RATE
                     );
                     const source = offlineContext.createBufferSource();
@@ -87,14 +79,10 @@ async function extractAndResampleAudio(mediaFile) {
                     source.connect(offlineContext.destination);
                     source.start();
                     const resampledBuffer = await offlineContext.startRendering();
-                    monoAudioData = convertToMono(resampledBuffer);
+                    resolve(convertToMono(resampledBuffer));
                 } else {
-                    monoAudioData = convertToMono(audioBuffer);
+                    resolve(convertToMono(audioBuffer));
                 }
-
-                // *** החזרת אובייקט עם האודיו והמשך ***
-                resolve({ data: monoAudioData, duration: duration });
-
             } catch (error) {
                 console.error("שגיאה בפענוח אודיו:", error);
                 reject(`שגיאה בפענוח האודיו: ${error.message}. בדוק אם הפורמט נתמך.`);
@@ -116,7 +104,6 @@ async function extractAndResampleAudio(mediaFile) {
 
 // פונקציית עזר להמרת AudioBuffer למונו (ללא שינוי)
 function convertToMono(audioBuffer) {
-    // ... (קוד זהה לקודם)
     if (audioBuffer.numberOfChannels === 1) {
         return audioBuffer.getChannelData(0);
     } else {
@@ -137,8 +124,7 @@ function convertToMono(audioBuffer) {
 
 // --- פונקציה להמרת תוצאות התמלול לפורמט SRT (ללא שינוי) ---
 function formatTimeToSRT(seconds) {
-    // ... (קוד זהה לקודם)
-    if (isNaN(seconds) || seconds === null || seconds < 0) return '00:00:00,000';
+     if (isNaN(seconds) || seconds === null || seconds < 0) return '00:00:00,000';
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
@@ -147,7 +133,6 @@ function formatTimeToSRT(seconds) {
 }
 
 function chunksToSRT(chunks) {
-    // ... (קוד זהה לקודם)
     let srtContent = '';
     let itemIndex = 1;
     chunks.forEach((chunk) => {
@@ -170,10 +155,27 @@ function chunksToSRT(chunks) {
     return srtContent;
 }
 
-// --- Callback נפרד לטעינת המודל (פעם אחת) ---
-function modelLoadingProgressCallback(data) {
+// *** פונקציה חדשה: יצירת תוכן TXT ***
+function createTxtContent(output) {
+    if (!output) return ''; // אין פלט כלל
+    if (output.chunks && output.chunks.length > 0) {
+        // חלץ טקסט ממקטעים תקינים
+        return output.chunks
+            .filter(chunk => chunk.text && chunk.text.trim().length > 0)
+            .map(chunk => chunk.text.trim())
+            .join('\n'); // חבר עם שורות חדשות
+    } else if (output.text && output.text.trim().length > 0) {
+        // השתמש בטקסט הכללי אם אין מקטעים
+        return output.text.trim();
+    }
+    return ''; // החזר מחרוזת ריקה אם אין טקסט
+}
+
+
+// --- פונקציה לטיפול בהורדת המודל והתקדמות התמלול (כולל התיקון ל-download) ---
+function modelProgressCallback(data) {
     const status = data.status;
-    console.log("Model Loading Progress Raw:", data); // לוג גולמי לניפוי באגים
+    console.log("Model Progress Raw:", data);
 
     switch (status) {
         case 'initiate':
@@ -186,10 +188,12 @@ function modelLoadingProgressCallback(data) {
             const progress = data.progress?.toFixed(2) || 0;
             updateStatus(`מוריד קובץ מודל: ${data.file} (${progress}%)`, progress);
             break;
-        case 'progress': // התקדמות טעינה/הכנה של קובץ שכבר הורד
-             const loadingProgress = data.progress?.toFixed(2) || 0;
+        case 'progress':
+            const transcriptionProgress = data.progress?.toFixed(2) || 0;
              if (data.file) {
-                  updateStatus(`מעבד קובץ מודל: ${data.file} (${loadingProgress}%)`, loadingProgress);
+                  updateStatus(`מעבד קובץ מודל: ${data.file} (${transcriptionProgress}%)`, transcriptionProgress);
+             } else {
+                  updateStatus(`מתמלל... (${transcriptionProgress}%)`, transcriptionProgress);
              }
             break;
         case 'done':
@@ -201,17 +205,17 @@ function modelLoadingProgressCallback(data) {
             updateStatus('מודל התמלול מוכן.', null);
             break;
         default:
-             console.log(`סטטוס טעינת מודל לא מוכר: ${status}`, data);
+             console.log(`סטטוס מודל לא מוכר: ${status}`, data);
     }
 }
 
-// --- אתחול ה-pipeline (כמו קודם) ---
+// --- אתחול ה-pipeline (ללא שינוי) ---
 let transcriber = null;
 let isModelLoading = true;
 updateStatus('טוען מודל שפה... (ייתכן וייקח זמן בפעם הראשונה)', 0);
 
 pipeline('automatic-speech-recognition', MODEL_NAME, {
-    progress_callback: modelLoadingProgressCallback, // קולבק רק לטעינה
+    progress_callback: modelProgressCallback,
 }).then(loadedPipeline => {
     transcriber = loadedPipeline;
     isModelLoading = false;
@@ -234,123 +238,142 @@ videoFileInput.addEventListener('change', async (event) => {
     if (!file) return;
 
     if (!transcriber) {
-        updateStatus(isModelLoading ? "המודל עדיין בטעינה, אנא המתן..." : "טעינת המודל נכשלה. רענן את הדף ונסה שוב.", null);
+        if (isModelLoading) {
+            updateStatus("המודל עדיין בטעינה, אנא המתן...", null);
+        } else {
+            updateStatus("טעינת המודל נכשלה. רענן את הדף ונסה שוב.", null);
+        }
         return;
     }
 
+    // השבת פקדים והסתר קישורים קודמים
     videoFileInput.disabled = true;
     languageSelect.disabled = true;
-    downloadLink.style.display = 'none';
-    progressDetailDiv.textContent = ''; // נקה פירוט קודם
+    // *** שינוי: הסתר את שני הקישורים ***
+    downloadLinkSrt.style.display = 'none';
+    downloadLinkTxt.style.display = 'none';
+    downloadButtonsDiv.style.display = 'none'; // הסתר גם את ה-div העוטף
     updateStatus('מתחיל עיבוד קובץ...', 0);
 
-    let audioInfo; // *** להחזיק את המידע על האודיו ***
+    // משתנים לאחסון כתובות ה-URL לשחרור מאוחר יותר
+    let srtUrlToRevoke = null;
+    let txtUrlToRevoke = null;
 
     try {
         // 1. חילוץ והמרת אודיו
-        audioInfo = await extractAndResampleAudio(file); // מקבלים { data, duration }
-        const audioData = audioInfo.data; // נתוני האודיו עצמם
-        const totalAudioDuration = audioInfo.duration; // משך האודיו הכולל
+        const audioData = await extractAndResampleAudio(file);
 
-        // --- בדיקות ניפוי שגיאות לאודיו ---
+        // בדיקות ניפוי שגיאות לאודיו
+        console.log('Audio Data:', audioData);
         console.log('Audio Data Type:', Object.prototype.toString.call(audioData));
         console.log('Audio Data Length:', audioData?.length);
         const isSilent = audioData?.every(sample => sample === 0);
         console.log('Is Audio Silent?', isSilent);
         const hasInvalidValues = !audioData?.every(Number.isFinite);
         console.log('Has Invalid Values (NaN/Infinity)?', hasInvalidValues);
-        // ניתן להדפיס רק חלק קטן מהמערך לבדיקה
-        console.log('Audio Data (first 10 samples):', audioData?.slice(0, 10));
-
 
         if (!audioData || audioData.length === 0) throw new Error("נתוני האודיו ריקים אחרי החילוץ וההמרה.");
         if (hasInvalidValues) throw new Error("נתוני האודיו מכילים ערכים לא תקינים (NaN/Infinity).");
         if (isSilent) console.warn("נתוני האודיו שקטים לחלוטין.");
-        // -----------------------------------------
 
+        // קבל את השפה שנבחרה
         let selectedLanguage = languageSelect.value;
-        if (selectedLanguage === 'auto') selectedLanguage = undefined;
+        if (selectedLanguage === 'auto') {
+            selectedLanguage = undefined;
+            updateStatus('מתמלל (זיהוי שפה אוטומטי)...', null);
+        } else {
+             updateStatus(`מתמלל (שפה: ${selectedLanguage})...`, null);
+        }
 
-        updateStatus(selectedLanguage ? `מתמלל (שפה: ${selectedLanguage})...` : 'מתמלל (זיהוי שפה אוטומטי)...', 0); // אתחל פרוגרס
-
-        // *** קולבק פנימי להתקדמות התמלול ***
-        const transcriptionProgressCallback = (data) => {
-            console.log("Transcription Progress Raw:", data);
-            if (data.status === 'progress' && !data.file) { // לוודא שזה התקדמות תמלול
-                 const transcriptionProgress = data.progress?.toFixed(2) || 0;
-                 // חישוב זמן מוערך
-                 const estimatedSeconds = totalAudioDuration * (transcriptionProgress / 100);
-                 const formattedTime = formatTimeToSRT(estimatedSeconds);
-                 const totalFormattedTime = formatTimeToSRT(totalAudioDuration); // משך כולל
-
-                 updateStatus(`מתמלל... (${transcriptionProgress}%)`, transcriptionProgress);
-                 // עדכון הפירוט
-                 progressDetailDiv.textContent = `מעבד סביב זמן: ${formattedTime} / ${totalFormattedTime}`;
-            } else if (data.status === 'update' && data.text) {
-                // חלק מה-pipelines מחזירים עדכוני טקסט חלקיים, נציג אותם
-                progressDetailDiv.textContent = `טקסט חלקי: ${data.text}`;
-            }
-        };
-
-
-        // 2. הפעלת התמלול *** עם הקולבק הפנימי ***
+        // 2. הפעלת התמלול
         const output = await transcriber(audioData, {
             chunk_length_s: 30,
             stride_length_s: 5,
             language: selectedLanguage,
             task: TASK,
             return_timestamps: true,
-            progress_callback: transcriptionProgressCallback, // העברת הקולבק
         });
 
         console.log("Transcription Output:", output);
-        updateStatus('מעבד תוצאות ויוצר קובץ SRT...', null); // הסתר פרוגרס בר ראשי
-        progressDetailDiv.textContent = ''; // נקה פירוט סופי
+        updateStatus('מעבד תוצאות ויוצר קבצים להורדה...', null);
 
-        // 3. פורמט ל-SRT (כמו קודם, עם המשתנה srtContent מוגדר בחוץ)
+        // 3. יצירת תוכן SRT
         let srtContent = '';
-        if (!output || (!output.chunks || output.chunks.length === 0)) {
-            if (output && output.text && output.text.trim().length > 0) {
-                console.warn("התמלול לא החזיר chunks עם חותמות זמן, יוצר SRT עם טקסט כללי.");
-                const duration = totalAudioDuration; // שימוש במשך המדויק
-                const fakeChunk = { timestamp: [0, duration || 1], text: output.text };
-                srtContent = chunksToSRT([fakeChunk]);
-                if (!srtContent) throw new Error("יצירת תוכן SRT נכשלה גם מטקסט כללי.");
-            } else {
-                throw new Error("התמלול לא החזיר תוצאות (לא chunks ולא טקסט). ייתכן והקובץ שקט או שהשפה לא זוהתה.");
-            }
-        } else {
+        if (output && output.chunks && output.chunks.length > 0) {
             srtContent = chunksToSRT(output.chunks);
-            if (!srtContent) {
-                throw new Error("יצירת תוכן SRT נכשלה (לא נמצאו chunks תקינים עם חותמות זמן וטקסט).");
-            }
+        } else if (output && output.text && output.text.trim().length > 0) {
+            console.warn("יוצר SRT עם טקסט כללי.");
+            const duration = audioData.length / TARGET_SAMPLE_RATE;
+            const fakeChunk = { timestamp: [0, duration || 1], text: output.text };
+            srtContent = chunksToSRT([fakeChunk]);
+        }
+        if (!srtContent) {
+             throw new Error("יצירת תוכן SRT נכשלה (לא נמצאו מקטעים תקינים).");
         }
 
-        // 4. יצירת קישור להורדה
-        const blob = new Blob([srtContent], { type: 'text/srt;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        downloadLink.href = url;
-        const originalFileName = file.name.substring(0, file.name.lastIndexOf('.')) || 'subtitles';
-        downloadLink.download = `${originalFileName}.srt`;
-        downloadLink.style.display = 'inline-block';
-        updateStatus('התמלול הושלם! לחץ על הקישור להורדה.', null);
+        // *** 4. יצירת תוכן TXT ***
+        const txtContent = createTxtContent(output);
+        if (!txtContent) {
+             // זה פחות קריטי, אפשר רק לתת אזהרה ולאפשר הורדת SRT
+             console.warn("יצירת תוכן TXT נכשלה (לא נמצא טקסט).");
+        }
 
-        setTimeout(() => {
-            console.log('Revoking blob URL');
-            URL.revokeObjectURL(url);
-        }, 180000);
+        // 5. יצירת קישורים להורדה
+        const originalFileName = file.name.substring(0, file.name.lastIndexOf('.')) || 'subtitles';
+
+        // יצירת קישור SRT
+        const blobSrt = new Blob([srtContent], { type: 'text/srt;charset=utf-8' });
+        srtUrlToRevoke = URL.createObjectURL(blobSrt); // שמור לשחרור
+        downloadLinkSrt.href = srtUrlToRevoke;
+        downloadLinkSrt.download = `${originalFileName}.srt`;
+        downloadLinkSrt.style.display = 'inline-block'; // הצג
+
+        // יצירת קישור TXT (רק אם יש תוכן)
+        if (txtContent) {
+            const blobTxt = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
+            txtUrlToRevoke = URL.createObjectURL(blobTxt); // שמור לשחרור
+            downloadLinkTxt.href = txtUrlToRevoke;
+            downloadLinkTxt.download = `${originalFileName}.txt`;
+            downloadLinkTxt.style.display = 'inline-block'; // הצג
+        } else {
+             downloadLinkTxt.style.display = 'none'; // השאר מוסתר אם אין תוכן TXT
+        }
+        downloadButtonsDiv.style.display = 'block'; // הצג את ה-div העוטף
+
+        updateStatus('התמלול הושלם! לחץ על הקישור הרצוי להורדה.', null);
 
     } catch (error) {
         console.error("שגיאה בתהליך התמלול:", error);
         statusDiv.textContent = `אירעה שגיאה: ${error.message}`;
         progressBar.style.display = 'none';
-        progressDetailDiv.textContent = ''; // נקה פירוט בשגיאה
-        downloadLink.style.display = 'none';
+        downloadLinkSrt.style.display = 'none'; // הסתר קישורים במקרה שגיאה
+        downloadLinkTxt.style.display = 'none';
+        downloadButtonsDiv.style.display = 'none';
+
+        // נסה לשחרר URLs אם נוצרו לפני השגיאה
+        if (srtUrlToRevoke) URL.revokeObjectURL(srtUrlToRevoke);
+        if (txtUrlToRevoke) URL.revokeObjectURL(txtUrlToRevoke);
+
     } finally {
+        // אפשר פקדים מחדש
         if (!isModelLoading) {
              videoFileInput.disabled = false;
              languageSelect.disabled = false;
         }
          videoFileInput.value = '';
+
+         // שחרור כתובות ה-URL לאחר זמן (רק אם לא שוחררו כבר ב-catch)
+         if (srtUrlToRevoke && !error) { // בדוק אם המשתנה קיים והאם לא הייתה שגיאה
+            setTimeout(() => {
+                console.log('Revoking SRT blob URL');
+                URL.revokeObjectURL(srtUrlToRevoke);
+            }, 180000);
+         }
+         if (txtUrlToRevoke && !error) { // בדוק אם המשתנה קיים והאם לא הייתה שגיאה
+            setTimeout(() => {
+                console.log('Revoking TXT blob URL');
+                URL.revokeObjectURL(txtUrlToRevoke);
+            }, 180000);
+         }
     }
 });
