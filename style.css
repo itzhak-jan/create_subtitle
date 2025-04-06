@@ -1,48 +1,169 @@
+/* --- General Styles --- */
+* {
+    box-sizing: border-box; /* Easier layout calculations */
+}
+
 body {
-    font-family: sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; /* Modern font stack */
     padding: 20px;
-    max-width: 600px;
-    margin: auto;
+    max-width: 800px; /* Limit max width for better readability on large screens */
+    margin: 20px auto; /* Center the content and add some margin */
+    line-height: 1.6; /* Improve readability */
+    background-color: #f9f9f9; /* Light background */
+    color: #333;
 }
 
-#status {
-    margin-top: 15px;
+h1 {
+    text-align: center;
+    color: #2c3e50;
+    margin-bottom: 1.5em;
+}
+
+p {
+    margin-bottom: 1em;
+}
+
+strong {
+    color: #e74c3c;
+}
+
+/* --- Controls Area --- */
+.controls {
+    display: flex;
+    flex-direction: column; /* Stack vertically by default */
+    gap: 15px; /* Space between items */
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column; /* Label above input by default */
+}
+
+label {
+    margin-bottom: 5px;
     font-weight: bold;
+    color: #555;
 }
 
-#downloadLink {
-    display: none;
-    margin-top: 15px;
-    padding: 10px 15px;
-    background-color: #4CAF50;
-    color: white;
-    text-decoration: none;
+input[type="file"],
+select {
+    padding: 10px;
+    border: 1px solid #ccc;
     border-radius: 4px;
+    font-size: 1em;
+    width: 100%; /* Take full width of container */
 }
 
-#downloadLink:hover {
-    background-color: #45a049;
+/* Specific styling for file input button text */
+input[type="file"]::file-selector-button {
+    padding: 8px 15px;
+    margin-right: 10px;
+    border: none;
+    background-color: #3498db;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+input[type="file"]::file-selector-button:hover {
+    background-color: #2980b9;
+}
+
+
+/* --- Status & Progress --- */
+#status {
+    margin-top: 20px;
+    font-weight: bold;
+    padding: 10px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    min-height: 1.5em; /* Prevent layout shifts */
 }
 
 progress {
     width: 100%;
+    margin-top: 8px;
+    height: 12px;
+    appearance: none; /* Override default appearance */
+    border: none;
+    border-radius: 6px;
+    overflow: hidden; /* Ensure progress stays within rounded corners */
+}
+
+/* Style for the progress bar background (track) */
+progress::-webkit-progress-bar {
+    background-color: #eee;
+    border-radius: 6px;
+}
+progress::-moz-progress-bar { /* Firefox */
+    background-color: #eee;
+    border-radius: 6px;
+}
+
+/* Style for the progress bar value (the moving part) */
+progress::-webkit-progress-value {
+    background-color: #5cb85c; /* Green */
+    border-radius: 6px;
+    transition: width 0.1s linear;
+}
+progress::-moz-progress-bar { /* Firefox */
+    background-color: #5cb85c;
+    border-radius: 6px;
+    transition: width 0.1s linear;
+}
+
+
+#progressDetail {
+    font-size: 0.9em;
     margin-top: 5px;
-    height: 10px;
+    min-height: 1.2em;
+    color: #666;
 }
 
-label {
-    margin-right: 10px;
+/* --- Download Link --- */
+#downloadLink {
+    display: none; /* Hidden by default */
+    margin-top: 20px;
+    padding: 12px 20px;
+    background-color: #5cb85c; /* Green */
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: bold;
+    transition: background-color 0.2s ease;
 }
 
-select,
-input[type="file"] {
-    margin-bottom: 15px;
-    padding: 8px;
+#downloadLink:hover {
+    background-color: #4cae4c;
 }
 
-.controls {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    flex-wrap: wrap;
+/* --- Responsive Adjustments --- */
+
+/* On screens wider than 600px, maybe put label and control side-by-side */
+@media (min-width: 600px) {
+    .control-group {
+        flex-direction: row; /* Label beside input */
+        align-items: center; /* Align items vertically */
+        gap: 10px; /* Space between label and input */
+    }
+
+    label {
+        margin-bottom: 0; /* Remove bottom margin when side-by-side */
+        flex-basis: 120px; /* Give label a fixed width */
+        flex-shrink: 0; /* Prevent label from shrinking */
+        text-align: right;
+    }
+
+    input[type="file"],
+    select {
+        flex-grow: 1; /* Allow input/select to take remaining space */
+        width: auto; /* Override the 100% width */
+    }
 }

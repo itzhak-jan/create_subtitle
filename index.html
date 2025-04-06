@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="he">
+<html lang="he" dir="rtl"> <!-- הוספתי כיווניות עברית -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מתמלל וידאו בדפדפן</title>
-    <link rel="stylesheet" href="styles.css">
+    <!-- קישור לקובץ ה-CSS החיצוני -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <h1>מתמלל וידאו פשוט (Client-Side)</h1>
@@ -12,17 +13,31 @@
     <p><strong>חשוב:</strong> התהליך מתבצע כולו בדפדפן שלך. שום קובץ לא נשלח לשרת. הביצועים תלויים במחשב שלך. בפעם הראשונה, הורדת מודל השפה עשויה לקחת מספר דקות.</p>
 
     <div class="controls">
-        <label for="videoFile">בחר קובץ:</label>
-        <input type="file" id="videoFile" accept="video/*, audio/*">
+        <!-- קבוצה עבור בחירת קובץ -->
+        <div class="control-group">
+            <label for="videoFile">בחר קובץ:</label>
+            <input type="file" id="videoFile" accept="video/*, audio/*">
+        </div>
 
-        <label for="languageSelect">שפת הדיבור:</label>
-        <select id="languageSelect">
-            <option value="auto">זיהוי אוטומטי</option>
-            <option value="he">עברית (Hebrew)</option>
-            <option value="ja">יפנית (Japanese)</option>
-            <option value="en">אנגלית (English)</option>
-            <!-- אפשר להוסיף עוד שפות לפי קודי ISO 639-1 -->
-        </select>
+        <!-- קבוצה עבור בחירת שפה -->
+        <div class="control-group">
+            <label for="languageSelect">שפת הדיבור:</label>
+            <select id="languageSelect">
+                <option value="auto">זיהוי אוטומטי</option>
+                <option value="he">עברית (Hebrew)</option>
+                <option value="en">אנגלית (English)</option>
+                <option value="ar">ערבית (Arabic)</option>
+                <option value="ru">רוסית (Russian)</option>
+                <option value="zh">סינית (Chinese)</option>
+                <option value="ko">קוריאנית (Korean)</option>
+                <option value="ja">יפנית (Japanese)</option>
+                <option value="fr">צרפתית (French)</option>
+                <option value="de">גרמנית (German)</option>
+                <option value="es">ספרדית (Spanish)</option>
+                <option value="it">איטלקית (Italian)</option>
+                <!-- אפשר להוסיף עוד שפות ש-Whisper תומך בהן -->
+            </select>
+        </div>
     </div>
 
     <div id="status">אנא בחר קובץ וידאו או אודיו.</div>
