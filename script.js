@@ -7,23 +7,33 @@ env.allowRemoteModels = true;
 
 // --- קבלת רפרנסים לאלמנטים ב-HTML ---
 const videoFileInput = document.getElementById('videoFile');
+const languageSelect = document.getElementById('languageSelect');
+const startButton = document.getElementById('startButton'); // כפתור התחל חדש
 const statusDiv = document.getElementById('status');
 const progressBar = document.getElementById('progressBar');
-const languageSelect = document.getElementById('languageSelect');
-// *** שינוי: רפרנסים לשני קישורי ההורדה ***
+const progressDetailDiv = document.getElementById('progressDetail'); // אלמנט להצגת פרטי התקדמות
+const downloadButtonsDiv = document.getElementById('downloadButtons');
 const downloadLinkSrt = document.getElementById('downloadLinkSrt');
 const downloadLinkTxt = document.getElementById('downloadLinkTxt');
-const downloadButtonsDiv = document.getElementById('downloadButtons'); // ה-div שעוטף
+const copySrtButton = document.getElementById('copySrtButton'); // כפתור העתקת SRT
+const copySrtButtonPlaceholder = document.getElementById('copySrtButtonPlaceholder'); // הכפתור בתוך ההוראות
+const copyPromptButton = document.getElementById('copyPromptButton'); // כפתור העתקת הנחיה
 
-
-// --- הגדרות תמלול ---
+// --- משתנים גלובליים ---
 const MODEL_NAME = 'Xenova/whisper-tiny';
 const TARGET_SAMPLE_RATE = 16000;
 const TASK = 'transcribe';
+let transcriber = null;
+let isModelLoading = true;
+let selectedFile = null; // לאחסון הקובץ שנבחר
+let currentSrtContent = ''; // לאחסון תוכן ה-SRT הנוכחי להעתקה
+let sharedBlobUrlToRevoke = null; // לאחסון ה-URL לשחרור
 
-// --- פונקציה לעדכון הסטטוס והפרוגרס בר ---
-function updateStatus(text, progressValue = null) {
+// --- פונקציות עזר ---
+
+function updateStatus(text, progressValue = null, detailText = '') {
     statusDiv.textContent = text;
+    progressDetailDiv.textContent = detailText; // עדכון טקסט פרטי ההתקדמות
     if (progressValue !== null && progressValue >= 0 && progressValue <= 100) {
         progressBar.style.display = 'block';
         progressBar.value = progressValue;
@@ -32,13 +42,13 @@ function updateStatus(text, progressValue = null) {
     }
 }
 
-// --- פונקציית חילוץ והמרת אודיו (ללא שינוי מהגרסה הקודמת) ---
 async function extractAndResampleAudio(mediaFile) {
-    updateStatus('קורא קובץ מדיה...', 0);
+    updateStatus('קורא קובץ מדיה...', 0, 'מתחיל...');
     let audioContext;
     try {
         audioContext = new AudioContext({ sampleRate: TARGET_SAMPLE_RATE });
         if (audioContext.state === 'suspended') {
+            console.log("AudioContext suspended, attempting to resume...");
             await audioContext.resume();
         }
     } catch (e) {
@@ -52,13 +62,13 @@ async function extractAndResampleAudio(mediaFile) {
         fileReader.onprogress = (event) => {
             if (event.lengthComputable) {
                 const percentComplete = (event.loaded / event.total) * 100;
-                updateStatus(`קורא קובץ מדיה... (${Math.round(percentComplete)}%)`, percentComplete);
+                updateStatus(`קורא קובץ מדיה... (${Math.round(percentComplete)}%)`, percentComplete, `הורדו ${Math.round(event.loaded / 1024 / 1024)}MB מתוך ${Math.round(event.total / 1024 / 1024)}MB`);
             }
         };
 
         fileReader.onload = async (event) => {
             try {
-                updateStatus('מפענח אודיו...', null);
+                updateStatus('מפענח אודיו...', null, 'מעבד נתוני שמע גולמיים...');
                 const audioBuffer = await audioContext.decodeAudioData(event.target.result);
 
                 if (audioBuffer.length === 0) {
@@ -68,7 +78,7 @@ async function extractAndResampleAudio(mediaFile) {
 
                 if (audioBuffer.sampleRate !== TARGET_SAMPLE_RATE) {
                     console.warn(`קצב דגימה מקורי: ${audioBuffer.sampleRate}, ממיר ל-${TARGET_SAMPLE_RATE}`);
-                    updateStatus(`ממיר קצב דגימה ל-${TARGET_SAMPLE_RATE}Hz...`, null);
+                    updateStatus(`ממיר קצב דגימה ל-${TARGET_SAMPLE_RATE}Hz...`, null, 'מבצע Resampling...');
                     const offlineContext = new OfflineAudioContext(
                         audioBuffer.numberOfChannels,
                         audioBuffer.duration * TARGET_SAMPLE_RATE,
@@ -81,6 +91,7 @@ async function extractAndResampleAudio(mediaFile) {
                     const resampledBuffer = await offlineContext.startRendering();
                     resolve(convertToMono(resampledBuffer));
                 } else {
+                    updateStatus('ממיר למונו (אם נדרש)...', null, 'מכין ערוץ אודיו יחיד...');
                     resolve(convertToMono(audioBuffer));
                 }
             } catch (error) {
@@ -102,7 +113,6 @@ async function extractAndResampleAudio(mediaFile) {
     });
 }
 
-// פונקציית עזר להמרת AudioBuffer למונו (ללא שינוי)
 function convertToMono(audioBuffer) {
     if (audioBuffer.numberOfChannels === 1) {
         return audioBuffer.getChannelData(0);
@@ -122,9 +132,8 @@ function convertToMono(audioBuffer) {
     }
 }
 
-// --- פונקציה להמרת תוצאות התמלול לפורמט SRT (ללא שינוי) ---
 function formatTimeToSRT(seconds) {
-     if (isNaN(seconds) || seconds === null || seconds < 0) return '00:00:00,000';
+    if (isNaN(seconds) || seconds === null || seconds < 0) return '00:00:00,000';
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
@@ -155,116 +164,134 @@ function chunksToSRT(chunks) {
     return srtContent;
 }
 
-// *** פונקציה חדשה: יצירת תוכן TXT ***
-function createTxtContent(output) {
-    if (!output) return ''; // אין פלט כלל
-    if (output.chunks && output.chunks.length > 0) {
-        // חלץ טקסט ממקטעים תקינים
-        return output.chunks
-            .filter(chunk => chunk.text && chunk.text.trim().length > 0)
-            .map(chunk => chunk.text.trim())
-            .join('\n'); // חבר עם שורות חדשות
-    } else if (output.text && output.text.trim().length > 0) {
-        // השתמש בטקסט הכללי אם אין מקטעים
-        return output.text.trim();
-    }
-    return ''; // החזר מחרוזת ריקה אם אין טקסט
-}
-
-
-// --- פונקציה לטיפול בהורדת המודל והתקדמות התמלול (כולל התיקון ל-download) ---
 function modelProgressCallback(data) {
     const status = data.status;
+    const file = data.file || '';
+    const progress = data.progress?.toFixed(2) || 0;
+    let detailText = '';
+
     console.log("Model Progress Raw:", data);
 
     switch (status) {
         case 'initiate':
-            updateStatus(`מאתחל הורדת קובץ מודל: ${data.file}`, 0);
+            updateStatus(`מאתחל הורדת קובץ מודל...`, 0, `קובץ: ${file}`);
             break;
         case 'download':
-             updateStatus(`מתחיל הורדת קובץ מודל: ${data.file}...`, 0);
+             updateStatus(`מתחיל הורדת קובץ מודל...`, 0, `קובץ: ${file}`);
              break;
         case 'downloading':
-            const progress = data.progress?.toFixed(2) || 0;
-            updateStatus(`מוריד קובץ מודל: ${data.file} (${progress}%)`, progress);
+            detailText = `קובץ: ${file} (${progress}%)`;
+            if (data.loaded && data.total) {
+                 detailText += ` - ${Math.round(data.loaded / 1024 / 1024)}MB / ${Math.round(data.total / 1024 / 1024)}MB`;
+            }
+            updateStatus(`מוריד קובץ מודל...`, progress, detailText);
             break;
-        case 'progress':
-            const transcriptionProgress = data.progress?.toFixed(2) || 0;
-             if (data.file) {
-                  updateStatus(`מעבד קובץ מודל: ${data.file} (${transcriptionProgress}%)`, transcriptionProgress);
-             } else {
-                  updateStatus(`מתמלל... (${transcriptionProgress}%)`, transcriptionProgress);
+        case 'progress': // התקדמות כללית - יכול להיות טעינה או תמלול
+             if (file) { // עדיין קשור לקובץ מודל ספציפי
+                  updateStatus(`מעבד קובץ מודל...`, progress, `קובץ: ${file} (${progress}%)`);
+             } else { // התקדמות תמלול
+                  updateStatus(`מתמלל... (${progress}%)`, progress, `מעבד מקטע אודיו...`);
              }
             break;
         case 'done':
-             if (data.file) {
-                updateStatus(`הורדת/טעינת ${data.file} הושלמה.`, null);
+             if (file) {
+                updateStatus(`הורדת/טעינת ${file} הושלמה.`, null, ''); // נקה פרטים
              }
             break;
         case 'ready':
-            updateStatus('מודל התמלול מוכן.', null);
+            updateStatus('מודל התמלול מוכן.', null, ''); // נקה פרטים
             break;
         default:
              console.log(`סטטוס מודל לא מוכר: ${status}`, data);
     }
 }
 
-// --- אתחול ה-pipeline (ללא שינוי) ---
-let transcriber = null;
-let isModelLoading = true;
-updateStatus('טוען מודל שפה... (ייתכן וייקח זמן בפעם הראשונה)', 0);
-
+// --- אתחול ה-pipeline ---
 pipeline('automatic-speech-recognition', MODEL_NAME, {
     progress_callback: modelProgressCallback,
 }).then(loadedPipeline => {
     transcriber = loadedPipeline;
     isModelLoading = false;
-    updateStatus('המודל נטען. אנא בחר קובץ וידאו או אודיו.', null);
+    updateStatus('המודל נטען. אנא בחר קובץ ובחר שפה.', null, '');
     videoFileInput.disabled = false;
     languageSelect.disabled = false;
+    // אל תפעיל את כפתור ההתחלה עדיין, חכה לבחירת קובץ
 }).catch(error => {
     console.error("שגיאה קריטית בטעינת המודל:", error);
-    updateStatus(`שגיאה חמורה בטעינת מודל השפה: ${error.message}. נסה לרענן את הדף.`, null);
+    updateStatus(`שגיאה חמורה בטעינת מודל השפה: ${error.message}. נסה לרענן את הדף.`, null, '');
     isModelLoading = false;
 });
 
 // נטרול ראשוני של הפקדים
 videoFileInput.disabled = true;
 languageSelect.disabled = true;
+startButton.disabled = true;
 
-// --- הלוגיקה המרכזית - בעת בחירת קובץ ---
-videoFileInput.addEventListener('change', async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+// --- אירועים ---
 
-    if (!transcriber) {
-        if (isModelLoading) {
-            updateStatus("המודל עדיין בטעינה, אנא המתן...", null);
-        } else {
-            updateStatus("טעינת המודל נכשלה. רענן את הדף ונסה שוב.", null);
+// בעת בחירת קובץ: שמור את הקובץ ואפשר את כפתור ההתחלה
+videoFileInput.addEventListener('change', (event) => {
+    selectedFile = event.target.files[0];
+    if (selectedFile && !isModelLoading && transcriber) {
+        startButton.disabled = false; // אפשר את כפתור ההתחלה
+        updateStatus('קובץ נבחר. לחץ "התחל תמלול".', null, '');
+        // הסתר תוצאות קודמות אם קיימות
+        downloadButtonsDiv.style.display = 'none';
+        copySrtButton.style.display = 'none';
+        copySrtButtonPlaceholder.style.display = 'none';
+        // שחרר URL קודם אם קיים
+        if (sharedBlobUrlToRevoke) {
+             console.log('Revoking previous blob URL on new file selection');
+             URL.revokeObjectURL(sharedBlobUrlToRevoke);
+             sharedBlobUrlToRevoke = null;
         }
+    } else {
+        startButton.disabled = true; // נטרל אם אין קובץ או שהמודל לא מוכן
+        selectedFile = null;
+        if (!transcriber && !isModelLoading) {
+            updateStatus("טעינת המודל נכשלה. רענן את הדף.", null, '');
+        } else if (isModelLoading) {
+             updateStatus("המודל עדיין בטעינה...", null, '');
+        } else {
+            updateStatus('אנא בחר קובץ.', null, '');
+        }
+    }
+});
+
+// בעת לחיצה על "התחל תמלול"
+startButton.addEventListener('click', async () => {
+    if (!selectedFile) {
+        updateStatus("שגיאה: לא נבחר קובץ.", null, '');
+        return;
+    }
+    if (!transcriber) {
+        updateStatus("שגיאה: המודל לא נטען כראוי.", null, '');
         return;
     }
 
-    // השבת פקדים והסתר קישורים קודמים
+    // השבת פקדים והסתר תוצאות קודמות
     videoFileInput.disabled = true;
     languageSelect.disabled = true;
-    // *** שינוי: הסתר את שני הקישורים ***
-    downloadLinkSrt.style.display = 'none';
-    downloadLinkTxt.style.display = 'none';
-    downloadButtonsDiv.style.display = 'none'; // הסתר גם את ה-div העוטף
-    updateStatus('מתחיל עיבוד קובץ...', 0);
+    startButton.disabled = true;
+    downloadButtonsDiv.style.display = 'none';
+    copySrtButton.style.display = 'none';
+    copySrtButtonPlaceholder.style.display = 'none';
+    updateStatus('מתחיל עיבוד קובץ...', 0, 'מכין את הקובץ...');
+    currentSrtContent = ''; // אפס תוכן קודם
 
-    // משתנים לאחסון כתובות ה-URL לשחרור מאוחר יותר
-    let srtUrlToRevoke = null;
-    let txtUrlToRevoke = null;
+    // נקה URL קודם אם עדיין קיים
+     if (sharedBlobUrlToRevoke) {
+        console.log('Revoking previous blob URL before starting new process');
+        URL.revokeObjectURL(sharedBlobUrlToRevoke);
+        sharedBlobUrlToRevoke = null;
+     }
 
     try {
         // 1. חילוץ והמרת אודיו
-        const audioData = await extractAndResampleAudio(file);
+        const audioData = await extractAndResampleAudio(selectedFile);
 
         // בדיקות ניפוי שגיאות לאודיו
-        console.log('Audio Data:', audioData);
+        console.log('Audio Data Sample (first 10):', audioData ? audioData.slice(0, 10) : 'N/A');
         console.log('Audio Data Type:', Object.prototype.toString.call(audioData));
         console.log('Audio Data Length:', audioData?.length);
         const isSilent = audioData?.every(sample => sample === 0);
@@ -277,103 +304,148 @@ videoFileInput.addEventListener('change', async (event) => {
         if (isSilent) console.warn("נתוני האודיו שקטים לחלוטין.");
 
         // קבל את השפה שנבחרה
-        let selectedLanguage = languageSelect.value;
-        if (selectedLanguage === 'auto') {
-            selectedLanguage = undefined;
-            updateStatus('מתמלל (זיהוי שפה אוטומטי)...', null);
-        } else {
-             updateStatus(`מתמלל (שפה: ${selectedLanguage})...`, null);
-        }
+        let selectedLanguageOption = languageSelect.value;
+        let langForWhisper = selectedLanguageOption === 'auto' ? undefined : selectedLanguageOption;
+        let langDisplay = selectedLanguageOption === 'auto' ? 'זיהוי אוטומטי' : languageSelect.options[languageSelect.selectedIndex].text;
+        updateStatus(`מתמלל (שפה: ${langDisplay})...`, null, 'מעביר למודל Whisper...');
 
         // 2. הפעלת התמלול
         const output = await transcriber(audioData, {
             chunk_length_s: 30,
             stride_length_s: 5,
-            language: selectedLanguage,
+            language: langForWhisper,
             task: TASK,
             return_timestamps: true,
+            progress_callback: (progressData) => { // הוספת callback גם כאן להתקדמות התמלול עצמו
+                 if(progressData.status === 'progress' && !progressData.file) {
+                     const transcriptionProgress = progressData.progress?.toFixed(2) || 0;
+                     updateStatus(`מתמלל (${transcriptionProgress}%)`, transcriptionProgress, `מעבד מקטע אודיו...`);
+                 } else {
+                     // עדכן עבור סטטוסים אחרים אם צריך
+                      modelProgressCallback(progressData);
+                 }
+            }
         });
 
         console.log("Transcription Output:", output);
-        updateStatus('מעבד תוצאות ויוצר קבצים להורדה...', null);
+        updateStatus('מעבד תוצאות ויוצר קבצים להורדה...', null, 'מפרמט כתוביות...');
 
         // 3. יצירת תוכן SRT
-        let srtContent = '';
+        let generatedSrtContent = ''; // שם חדש כדי לא להתנגש עם הגלובלי מיד
         if (output && output.chunks && output.chunks.length > 0) {
-            srtContent = chunksToSRT(output.chunks);
+            generatedSrtContent = chunksToSRT(output.chunks);
         } else if (output && output.text && output.text.trim().length > 0) {
             console.warn("יוצר SRT עם טקסט כללי.");
             const duration = audioData.length / TARGET_SAMPLE_RATE;
             const fakeChunk = { timestamp: [0, duration || 1], text: output.text };
-            srtContent = chunksToSRT([fakeChunk]);
+            generatedSrtContent = chunksToSRT([fakeChunk]);
         }
-        if (!srtContent) {
-             throw new Error("יצירת תוכן SRT נכשלה (לא נמצאו מקטעים תקינים).");
+        if (!generatedSrtContent) {
+            throw new Error("יצירת תוכן SRT נכשלה (לא נמצאו מקטעים תקינים).");
         }
+        currentSrtContent = generatedSrtContent; // עדכן את המשתנה הגלובלי
 
-        // *** 4. יצירת תוכן TXT ***
-        const txtContent = createTxtContent(output);
-        if (!txtContent) {
-             // זה פחות קריטי, אפשר רק לתת אזהרה ולאפשר הורדת SRT
-             console.warn("יצירת תוכן TXT נכשלה (לא נמצא טקסט).");
-        }
+        // 4. יצירת קישורים להורדה (עם אותו תוכן SRT)
+        const originalFileName = selectedFile.name.substring(0, selectedFile.name.lastIndexOf('.')) || 'subtitles';
+        const blobContent = new Blob([currentSrtContent], { type: 'text/plain;charset=utf-8' });
+        sharedBlobUrlToRevoke = URL.createObjectURL(blobContent); // שמור URL לשחרור
 
-        // 5. יצירת קישורים להורדה
-        const originalFileName = file.name.substring(0, file.name.lastIndexOf('.')) || 'subtitles';
-
-        // יצירת קישור SRT
-        const blobSrt = new Blob([srtContent], { type: 'text/srt;charset=utf-8' });
-        srtUrlToRevoke = URL.createObjectURL(blobSrt); // שמור לשחרור
-        downloadLinkSrt.href = srtUrlToRevoke;
+        downloadLinkSrt.href = sharedBlobUrlToRevoke;
         downloadLinkSrt.download = `${originalFileName}.srt`;
-        downloadLinkSrt.style.display = 'inline-block'; // הצג
+        downloadLinkSrt.style.display = 'inline-block';
 
-        // יצירת קישור TXT (רק אם יש תוכן)
-        if (txtContent) {
-            const blobTxt = new Blob([txtContent], { type: 'text/plain;charset=utf-8' });
-            txtUrlToRevoke = URL.createObjectURL(blobTxt); // שמור לשחרור
-            downloadLinkTxt.href = txtUrlToRevoke;
-            downloadLinkTxt.download = `${originalFileName}.txt`;
-            downloadLinkTxt.style.display = 'inline-block'; // הצג
-        } else {
-             downloadLinkTxt.style.display = 'none'; // השאר מוסתר אם אין תוכן TXT
-        }
-        downloadButtonsDiv.style.display = 'block'; // הצג את ה-div העוטף
+        downloadLinkTxt.href = sharedBlobUrlToRevoke;
+        downloadLinkTxt.download = `${originalFileName}.txt`;
+        downloadLinkTxt.style.display = 'inline-block';
 
-        updateStatus('התמלול הושלם! לחץ על הקישור הרצוי להורדה.', null);
+        copySrtButton.style.display = 'inline-block'; // הצג כפתור העתקה
+        copySrtButtonPlaceholder.style.display = 'inline-block'; // הצג גם את הכפתור בהוראות
+        downloadButtonsDiv.style.display = 'block'; // הצג את כל אזור ההורדה
+
+        updateStatus('התמלול הושלם! לחץ על הקישור הרצוי להורדה.', null, '');
 
     } catch (error) {
         console.error("שגיאה בתהליך התמלול:", error);
         statusDiv.textContent = `אירעה שגיאה: ${error.message}`;
         progressBar.style.display = 'none';
-        downloadLinkSrt.style.display = 'none'; // הסתר קישורים במקרה שגיאה
-        downloadLinkTxt.style.display = 'none';
-        downloadButtonsDiv.style.display = 'none';
+        progressDetailDiv.textContent = ''; // נקה פרטי התקדמות
+        downloadButtonsDiv.style.display = 'none'; // הסתר קישורים
+        copySrtButton.style.display = 'none';
+        copySrtButtonPlaceholder.style.display = 'none';
+        currentSrtContent = ''; // אפס תוכן להעתקה
 
-        // נסה לשחרר URLs אם נוצרו לפני השגיאה
-        if (srtUrlToRevoke) URL.revokeObjectURL(srtUrlToRevoke);
-        if (txtUrlToRevoke) URL.revokeObjectURL(txtUrlToRevoke);
+        // נסה לשחרר URL אם נוצר לפני השגיאה
+        if (sharedBlobUrlToRevoke) {
+            console.log('Revoking blob URL after error');
+            URL.revokeObjectURL(sharedBlobUrlToRevoke);
+            sharedBlobUrlToRevoke = null;
+        }
 
     } finally {
-        // אפשר פקדים מחדש
+        // אפשר פקדים מחדש (אם המודל נטען בהצלחה במקור)
         if (!isModelLoading) {
              videoFileInput.disabled = false;
              languageSelect.disabled = false;
+             // אפשר את כפתור ההתחלה רק אם יש עדיין קובץ שנבחר
+             startButton.disabled = !selectedFile;
+        } else {
+            // אם המודל נכשל בטעינה, השאר הכל מנוטרל
+             videoFileInput.disabled = true;
+             languageSelect.disabled = true;
+             startButton.disabled = true;
         }
-         videoFileInput.value = '';
 
-         // שחרור כתובות ה-URL לאחר זמן (רק אם לא שוחררו כבר ב-catch)
-         if (srtUrlToRevoke && !error) { // בדוק אם המשתנה קיים והאם לא הייתה שגיאה
+         // שחרור כתובת ה-URL לאחר זמן (רק אם לא שוחררה כבר ב-catch)
+         if (sharedBlobUrlToRevoke) {
             setTimeout(() => {
-                console.log('Revoking SRT blob URL');
-                URL.revokeObjectURL(srtUrlToRevoke);
-            }, 180000);
+                if (sharedBlobUrlToRevoke) { // בדוק שוב אם הוא עדיין קיים
+                     console.log('Revoking shared blob URL after timeout');
+                     URL.revokeObjectURL(sharedBlobUrlToRevoke);
+                     sharedBlobUrlToRevoke = null;
+                }
+            }, 180000); // 3 דקות
          }
-         if (txtUrlToRevoke && !error) { // בדוק אם המשתנה קיים והאם לא הייתה שגיאה
-            setTimeout(() => {
-                console.log('Revoking TXT blob URL');
-                URL.revokeObjectURL(txtUrlToRevoke);
-            }, 180000);
-         }
+    }
+});
+
+// העתקת תוכן SRT/TXT ללוח
+copySrtButton.addEventListener('click', async () => {
+    if (!currentSrtContent) {
+        alert("אין תוכן להעתקה.");
+        return;
+    }
+    try {
+        await navigator.clipboard.writeText(currentSrtContent);
+        // משוב למשתמש
+        const originalText = copySrtButton.textContent;
+        copySrtButton.textContent = 'הועתק!';
+        copySrtButtonPlaceholder.textContent = 'הועתק!';
+        setTimeout(() => {
+            copySrtButton.textContent = originalText;
+            copySrtButtonPlaceholder.textContent = originalText;
+        }, 2000); // החזר טקסט מקורי אחרי 2 שניות
+    } catch (err) {
+        console.error('Failed to copy SRT content: ', err);
+        alert("שגיאה בהעתקה ללוח.");
+    }
+});
+// סנכרון שני כפתורי ההעתקה
+copySrtButtonPlaceholder.addEventListener('click', () => copySrtButton.click());
+
+
+// העתקת ההנחיה המומלצת ל-AI
+copyPromptButton.addEventListener('click', async () => {
+    const promptText = `אנא תקן את הטקסט הבא, המגיע מקובץ כתוביות (התעלם ממספרי השורות וחותמות הזמן): סדר את המשפטים, תקן שגיאות כתיב ודקדוק, הוסף פיסוק הגיוני, וודא שהתחביר קריא וברור. שמור על המשמעות המקורית.`;
+    try {
+        await navigator.clipboard.writeText(promptText);
+        // משוב למשתמש
+        const originalText = copyPromptButton.textContent;
+        copyPromptButton.textContent = 'הועתק!';
+        setTimeout(() => {
+            copyPromptButton.textContent = originalText;
+        }, 2000);
+    } catch (err) {
+        console.error('Failed to copy prompt: ', err);
+        alert("שגיאה בהעתקת ההנחיה.");
     }
 });
