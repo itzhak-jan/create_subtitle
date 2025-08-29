@@ -1,74 +1,126 @@
 <!DOCTYPE html>
-<!-- lang ו-dir יתעדכנו על ידי JavaScript -->
-<html lang="he" dir="rtl">
-
+<html lang="he" dir="rtl" id="htmlRoot">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n-key="pageTitle">מתמלל וידאו בדפדפן</title>
+    <title data-i18n="title">מתמלל וידאו בדפדפן</title>
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-    <div class="lang-switcher">
-        <button id="lang-he">עברית</button>
-        <button id="lang-en">English</button>
+    <!-- Language Selector -->
+    <div class="language-selector">
+        <button id="langHe" class="lang-btn active" data-lang="he">עברית</button>
+        <button id="langEn" class="lang-btn" data-lang="en">English</button>
     </div>
 
-    <h1 data-i18n-key="mainHeading"></h1>
-    <p data-i18n-key="introParagraph1"></p>
-    <p><strong data-i18n-key="importantNotice"></strong></p>
+    <h1 data-i18n="title">מתמלל וידאו בדפדפן</h1>
+    <p data-i18n="subtitle">העלה קובץ וידאו (mp4, mov, avi, mkv) או אודיו (mp3, wav), בחר שפה, ולחץ "התחל תמלול" כדי לקבל קובץ כתוביות (SRT).</p>
+    <p><strong data-i18n="important_note">חשוב: התהליך מתבצע כולו בדפדפן שלך. שום קובץ לא נשלח לשרת. הביצועים תלויים במחשב שלך. בפעם הראשונה, הורדת מודל השפה עשויה לקחת מספר דקות.</strong></p>
 
     <div class="controls">
         <div class="control-group">
-            <label for="videoFile" data-i18n-key="selectFileLabel"></label>
+            <label for="videoFile" data-i18n="step1">1. בחר קובץ:</label>
             <input type="file" id="videoFile" accept="video/*, audio/*">
         </div>
+        
         <div class="control-group">
-            <label for="languageSelect" data-i18n-key="selectLanguageLabel"></label>
+            <label for="languageSelect" data-i18n="step2">2. בחר שפה:</label>
             <select id="languageSelect">
-                <option value="auto" selected data-i18n-key="langOptionAuto"></option>
-                <option value="he" data-i18n-key="langOptionHe"></option>
-                <option value="en" data-i18n-key="langOptionEn"></option>
-                <option value="ar" data-i18n-key="langOptionAr"></option>
-                <option value="ru" data-i18n-key="langOptionRu"></option>
-                <option value="zh" data-i18n-key="langOptionZh"></option>
-                <option value="ko" data-i18n-key="langOptionKo"></option>
-                <option value="ja" data-i18n-key="langOptionJa"></option>
-                <option value="fr" data-i18n-key="langOptionFr"></option>
-                <option value="de" data-i18n-key="langOptionDe"></option>
-                <option value="es" data-i18n-key="langOptionEs"></option>
-                <option value="it" data-i18n-key="langOptionIt"></option>
+                <option value="auto" selected data-i18n="auto_detect">זיהוי אוטומטי</option>
+                <option value="he" data-i18n="languages.he">עברית (Hebrew)</option>
+                <option value="en" data-i18n="languages.en">אנגלית (English)</option>
+                <option value="ar" data-i18n="languages.ar">ערבית (Arabic)</option>
+                <option value="ru" data-i18n="languages.ru">רוסית (Russian)</option>
+                <option value="zh" data-i18n="languages.zh">סינית (Chinese)</option>
+                <option value="ko" data-i18n="languages.ko">קוריאנית (Korean)</option>
+                <option value="ja" data-i18n="languages.ja">יפנית (Japanese)</option>
+                <option value="fr" data-i18n="languages.fr">צרפתית (French)</option>
+                <option value="de" data-i18n="languages.de">גרמנית (German)</option>
+                <option value="es" data-i18n="languages.es">ספרדית (Spanish)</option>
+                <option value="it" data-i18n="languages.it">איטלקית (Italian)</option>
             </select>
         </div>
-        <button id="startButton" disabled data-i18n-key="startButton"></button>
+
+        <!-- Advanced Progress Display -->
+        <div class="progress-container" style="display: none;">
+            <div class="progress-header">
+                <span id="currentStage" data-i18n="status_messages.loading_model">טוען מודל שפה...</span>
+                <span id="progressPercentage">0%</span>
+            </div>
+            <div class="progress-bar-container">
+                <div id="progressBarFill" class="progress-bar-fill"></div>
+            </div>
+            <div id="progressDetails" class="progress-details"></div>
+            <div id="estimatedTime" class="estimated-time"></div>
+        </div>
+
+        <!-- Cancel Button -->
+        <button id="cancelButton" class="cancel-btn" style="display: none;">בטל תהליך</button>
+        
+        <button id="startButton" disabled data-i18n="step3">3. התחל תמלול</button>
     </div>
 
-    <div id="status"></div>
-    <progress id="progressBar" value="0" max="100" style="display: none;"></progress>
-    <div id="progressDetail" style="font-size: 0.9em; margin-top: 5px; min-height: 1.2em;"></div>
+    <div id="status" data-i18n="status_messages.select_file">אנא בחר קובץ ובחר שפה.</div>
 
     <div id="downloadButtons" style="margin-top: 15px; display: none;">
-        <a href="#" id="downloadLinkSrt" download="subtitles.srt" style="display: none;" data-i18n-key="downloadSrtButton"></a>
-        <a href="#" id="downloadLinkTxt" download="subtitles.txt" style="display: none; margin-left: 15px; background-color: #007bff; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;" data-i18n-key="downloadTxtButton"></a>
-        <button id="copySrtButton" class="copy-button" style="display: none; margin-left: 15px;" data-i18n-key="copyContentButton"></button>
+        <a href="#" id="downloadLinkSrt" download="subtitles.srt" style="display: none;" data-i18n="download.srt">הורד כתוביות (SRT)</a>
+        <a href="#" id="downloadLinkTxt" download="subtitles.txt" style="display: none; margin-left: 15px;" data-i18n="download.txt">הורד כ-TXT (זהה ל-SRT)</a>
+        <button id="copySrtButton" class="copy-button" style="display: none; margin-left: 15px;" data-i18n="download.copy_content">העתק תוכן</button>
     </div>
 
     <hr style="margin-top: 30px;">
 
     <div class="clarifications">
-        <h2 data-i18n-key="clarificationsTitle"></h2>
-        <p><strong data-i18n-key="clarificationsP1"></strong></p>
-        <ul data-i18n-key-html="clarificationsList1"></ul>
-        <p data-i18n-key="apology"></p>
-        <p><strong data-i18n-key="bestResultsTitle"></strong></p>
-        <ol data-i18n-key-html="clarificationsList2"></ol>
-        <p><strong data-i18n-key="whatItDoesNotDoTitle"></strong></p>
-        <ul data-i18n-key-html="clarificationsList3"></ul>
-        <p data-i18n-key="hopeItHelps"></p>
+        <h2 data-i18n="info_section.title">מידע חשוב: מגבלות הכלי וטיפים לשימוש</h2>
+
+        <p><strong data-i18n="info_section.limitations_title">חשוב להבין את מגבלות הכלי:</strong></p>
+        <ul>
+            <li><strong>תמלול מבוסס שמע בלבד:</strong> <span data-i18n="info_section.audio_only">הכלי "מאזין" לאודיו וממיר אותו לטקסט. הוא אינו "רואה" את הוידאו או מבין הקשר חזותי.</span></li>
+            <li><strong>רגישות לרעשים ואיכות שמע:</strong> <span data-i18n="info_section.audio_quality">איכות התמלול תלויה מאוד באיכות השמע בקובץ המקורי. רעשי רקע, מוזיקה חזקה, דיבור לא ברור או חופף, ומספר דוברים בו-זמנית עלולים לגרום לשגיאות רבות.</span></li>
+            <li><strong>שמות, מונחים וביטויים ייחודיים:</strong> <span data-i18n="info_section.names_terms">מודל השפה (במיוחד הקטן שרץ בדפדפן) עשוי להתקשות בזיהוי נכון של שמות פרטיים, שמות מקומות, מותגים, ז'רגון מקצועי או ביטויי סלנג.</span></li>
+            <li><strong>מודל שפה קטן יחסית:</strong> <span data-i18n="info_section.small_model">כדי לאפשר ריצה בתוך הדפדפן שלכם, הכלי משתמש בגרסה קטנה יחסית של מודל Whisper. גרסאות גדולות יותר (שדורשות שרתים חזקים) יכולות להציע דיוק גבוה יותר.</span></li>
+            <li><strong>ביצועים תלויי מחשב:</strong> <span data-i18n="info_section.performance">כל העיבוד מתבצע במחשב שלכם. משך זמן התמלול תלוי ישירות בכוח העיבוד של המחשב ובאורך הקובץ. קבצים ארוכים מאוד עלולים לקחת זמן רב או אף להיכשל במחשבים חלשים.</span></li>
+        </ul>
+        <p data-i18n="info_section.apology">אנו מתנצלים מראש על שגיאות אפשריות בתמלול.</p>
+
+        <p><strong data-i18n="info_section.tips_title">כדי לקבל את התוצאה הטובה ביותר:</strong></p>
+        <ol>
+            <li><strong>בחירת שפה מראש:</strong> <span data-i18n="info_section.select_language">אנא בחרו את השפה העיקרית המדוברת לפני לחיצה על "התחל תמלול". ציון השפה מראש משפר את הדיוק.</span></li>
+            <li><strong>עיבוד ושיפור באמצעות כלי AI חיצוני:</strong> <span data-i18n="info_section.ai_processing">לאחר קבלת הקובץ, מומלץ להעביר את התוכן דרך כלי AI חיצוני לתיקונים ושיפורים.</span></li>
+            <li>
+                <strong data-i18n="info_section.ai_preparation">הכנת הקובץ לכלי AI:</strong>
+                <ul>
+                    <li data-i18n="info_section.ai_note">שים לב: התוכן בקובץ ה-TXT עדיין בפורמט SRT (כולל מספרים וחותמות זמן). כלי ה-AI עשוי להתייחס למידע זה כחלק מהטקסט. נסו לבקש ממנו להתעלם מהמספרים וחותמות הזמן ולהתמקד בתיקון הטקסט עצמו.</li>
+                    <li><strong>הנחיה מומלצת לכלי ה-AI:</strong>
+                        <button id="copyPromptButton" class="copy-button" style="display: inline-block;" data-i18n="download.copy_prompt">העתק הנחיה</button>
+                        <br>
+                        <code id="promptTextElement" data-i18n="info_section.ai_prompt">
+                            "אנא תקן את הטקסט הבא, המגיע מקובץ כתוביות (התעלם ממספרי השורות וחותמות הזמן): סדר את המשפטים, תקן שגיאות כתיב ודקדוק, הוסף פיסוק הגיוני, וודא שהתחביר קריא וברור. שמור על המשمעות המקורית."</code>
+                    </li>
+                </ul>
+            </li>
+            <li><strong data-i18n="info_section.clean_audio">שימוש בקובץ שמע נקי: איכות שמע טובה יותר = תמלול טוב יותר.</strong></li>
+        </ol>
+
+        <p><strong data-i18n="info_section.limitations_list_title">מה הכלי *לא* עושה כרגע?</strong></p>
+        <ul>
+            <li data-i18n="info_section.no_speaker_id">זיהוי דוברים (Speaker Diarization).</li>
+            <li data-i18n="info_section.no_translation">תרגום אוטומטי.</li>
+            <li data-i18n="info_section.no_advanced_editing">עריכה מתקדמת.</li>
+        </ul>
+        <p data-i18n="info_section.hope_helpful">מקווים שהכלי יהיה לכם לעזר!</p>
     </div>
+
+    <!-- Worker for heavy processing -->
+    <script>
+        // Initialize Web Worker for non-blocking processing
+        if (typeof Worker !== 'undefined') {
+            console.log('Web Workers supported');
+        } else {
+            console.warn('Web Workers not supported - processing may block UI');
+        }
+    </script>
 
     <script type="module" src="script.js"></script>
 </body>
-
 </html>

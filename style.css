@@ -1,55 +1,527 @@
-/* --- General Styles --- */
-* { box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; padding: 20px; max-width: 800px; margin: 20px auto; line-height: 1.6; background-color: #f9f9f9; color: #333; }
-h1 { text-align: center; color: #2c3e50; margin-bottom: 1.5em; }
-p { margin-bottom: 1em; }
-strong { color: #e74c3c; }
+/* === CSS Variables for Theme === */
+:root {
+    --primary-color: #2563eb;
+    --primary-hover: #1d4ed8;
+    --success-color: #16a34a;
+    --success-hover: #15803d;
+    --warning-color: #d97706;
+    --warning-hover: #b45309;
+    --danger-color: #dc2626;
+    --danger-hover: #b91c1c;
+    --text-primary: #1f2937;
+    --text-secondary: #6b7280;
+    --background: #f9fafb;
+    --surface: #ffffff;
+    --border: #e5e7eb;
+    --border-focus: #3b82f6;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --radius: 8px;
+    --radius-sm: 4px;
+    --radius-lg: 12px;
+}
 
-/* --- Language Switcher --- */
-.lang-switcher {
-    text-align: center;
-    margin-bottom: 20px;
+/* === General Styles === */
+* {
+    box-sizing: border-box;
 }
-.lang-switcher button {
-    margin: 0 5px;
-    padding: 5px 10px;
-    background-color: #f0f0f0;
-    border: 1px solid #ccc;
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+    line-height: 1.6;
+    background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%);
+    color: var(--text-primary);
+    min-height: 100vh;
 }
-.lang-switcher button.active {
-    background-color: #007bff;
+
+/* === Language Selector === */
+.language-selector {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    gap: 8px;
+    z-index: 100;
+}
+
+.lang-btn {
+    padding: 8px 16px;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.lang-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.lang-btn.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
     color: white;
-    border-color: #007bff;
 }
 
-/* --- Controls Area --- */
-.controls { display: flex; flex-direction: column; gap: 15px; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-.control-group { display: flex; flex-direction: column; }
-label { margin-bottom: 5px; font-weight: bold; color: #555; }
-input[type="file"], select { padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 1em; width: 100%; }
-input[type="file"]::file-selector-button { padding: 8px 15px; margin-right: 10px; border: none; background-color: #3498db; color: white; border-radius: 4px; cursor: pointer; transition: background-color 0.2s ease; }
-input[type="file"]::file-selector-button:hover { background-color: #2980b9; }
+/* === Header === */
+h1 {
+    text-align: center;
+    color: var(--text-primary);
+    margin: 60px 0 1.5em 0;
+    font-size: 2.5rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
 
-/* --- Status & Progress --- */
-#status { margin-top: 20px; font-weight: bold; padding: 10px; background-color: #e9ecef; border-radius: 4px; min-height: 1.5em; }
-progress { width: 100%; margin-top: 8px; height: 12px; appearance: none; border: none; border-radius: 6px; overflow: hidden; }
-progress::-webkit-progress-bar { background-color: #eee; border-radius: 6px; }
-progress::-moz-progress-bar { background-color: #eee; border-radius: 6px; }
-progress::-webkit-progress-value { background-color: #5cb85c; border-radius: 6px; transition: width 0.1s linear; }
-progress::-moz-progress-bar { background-color: #5cb85c; border-radius: 6px; transition: width 0.1s linear; }
-#progressDetail { font-size: 0.9em; margin-top: 5px; min-height: 1.2em; color: #666; }
+h2 {
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    margin: 2rem 0 1rem 0;
+}
 
-/* --- Buttons --- */
-button { padding: 10px 15px; font-size: 1em; cursor: pointer; border: none; border-radius: 4px; transition: background-color 0.2s ease; }
-button:disabled { background-color: #ccc; cursor: not-allowed; }
-#startButton { background-color: #28a745; color: white; margin-top: 15px; width: 100%; }
-#startButton:not(:disabled):hover { background-color: #218838; }
-.copy-button { background-color: #ffc107; color: #333; margin-left: 5px; padding: 3px 8px; font-size: 0.9em; }
-.copy-button:hover { background-color: #e0a800; }
+p {
+    margin-bottom: 1em;
+    color: var(--text-secondary);
+}
 
-/* --- Responsive --- */
+strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* === Controls Area === */
+.controls {
+    background: var(--surface);
+    padding: 32px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+}
+
+.controls::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary-color), var(--success-color));
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 24px;
+}
+
+.control-group:last-of-type {
+    margin-bottom: 16px;
+}
+
+label {
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+input[type="file"],
+select {
+    padding: 12px 16px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 1rem;
+    width: 100%;
+    background: var(--surface);
+    transition: all 0.2s ease;
+    color: var(--text-primary);
+}
+
+input[type="file"]:focus,
+select:focus {
+    outline: none;
+    border-color: var(--border-focus);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+input[type="file"]:hover,
+select:hover {
+    border-color: var(--primary-color);
+}
+
+/* File input styling */
+input[type="file"]::file-selector-button {
+    padding: 10px 20px;
+    margin-right: 16px;
+    border: none;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+    color: white;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+input[type="file"]::file-selector-button:hover {
+    background: linear-gradient(135deg, var(--primary-hover), #1e40af);
+    transform: translateY(-1px);
+}
+
+/* === Progress Display === */
+.progress-container {
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: var(--radius);
+    padding: 20px;
+    margin: 24px 0;
+    animation: fadeIn 0.3s ease;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+#currentStage {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+#progressPercentage {
+    font-weight: 700;
+    color: var(--primary-color);
+    font-size: 1.1rem;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 12px;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-color), var(--success-color));
+    width: 0%;
+    transition: width 0.3s ease;
+    border-radius: 4px;
+    position: relative;
+}
+
+.progress-bar-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: shimmer 2s infinite;
+}
+
+.progress-details {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.estimated-time {
+    font-size: 0.85rem;
+    color: var(--warning-color);
+    font-weight: 500;
+}
+
+/* === Buttons === */
+button {
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    border-radius: var(--radius);
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    transition: all 0.3s ease;
+    transform: translate(-50%, -50%);
+}
+
+button:active::before {
+    width: 300px;
+    height: 300px;
+}
+
+button:disabled {
+    background: #e5e7eb !important;
+    color: #9ca3af !important;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+#startButton {
+    background: linear-gradient(135deg, var(--success-color), var(--success-hover));
+    color: white;
+    width: 100%;
+    padding: 16px 24px;
+    font-size: 1.1rem;
+    margin-top: 8px;
+    box-shadow: var(--shadow-md);
+}
+
+#startButton:not(:disabled):hover {
+    background: linear-gradient(135deg, var(--success-hover), #166534);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.cancel-btn {
+    background: linear-gradient(135deg, var(--danger-color), var(--danger-hover));
+    color: white;
+    width: 100%;
+    margin-top: 12px;
+}
+
+.cancel-btn:hover {
+    background: linear-gradient(135deg, var(--danger-hover), #991b1b);
+    transform: translateY(-1px);
+}
+
+.copy-button {
+    background: linear-gradient(135deg, var(--warning-color), var(--warning-hover));
+    color: white;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    margin-left: 8px;
+}
+
+.copy-button:hover {
+    background: linear-gradient(135deg, var(--warning-hover), #92400e);
+    transform: translateY(-1px);
+}
+
+/* === Status Display === */
+#status {
+    background: var(--surface);
+    padding: 16px 20px;
+    border-radius: var(--radius);
+    margin: 24px 0;
+    font-weight: 600;
+    border: 2px solid var(--border);
+    min-height: 2em;
+    display: flex;
+    align-items: center;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s ease;
+}
+
+#status.processing {
+    border-color: var(--primary-color);
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    color: var(--primary-color);
+}
+
+#status.success {
+    border-color: var(--success-color);
+    background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+    color: var(--success-color);
+}
+
+#status.error {
+    border-color: var(--danger-color);
+    background: linear-gradient(135deg, #fef2f2, #fecaca);
+    color: var(--danger-color);
+}
+
+/* === Download Links === */
+#downloadButtons {
+    background: var(--surface);
+    padding: 20px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    border: 2px solid var(--success-color);
+    animation: slideUp 0.4s ease;
+}
+
+#downloadButtons a {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+    color: white;
+    padding: 12px 20px;
+    text-decoration: none;
+    border-radius: var(--radius);
+    font-weight: 600;
+    transition: all 0.2s ease;
+    margin-right: 12px;
+    margin-bottom: 8px;
+}
+
+#downloadButtons a:hover {
+    background: linear-gradient(135deg, var(--primary-hover), #1e40af);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* === Info Section === */
+.clarifications {
+    background: var(--surface);
+    padding: 32px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+    margin-top: 32px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.clarifications ul,
+.clarifications ol {
+    padding-left: 24px;
+    margin-bottom: 16px;
+}
+
+.clarifications li {
+    margin-bottom: 8px;
+    color: var(--text-secondary);
+}
+
+.clarifications code {
+    background: #f3f4f6;
+    padding: 16px;
+    border-radius: var(--radius-sm);
+    display: block;
+    margin: 12px 0;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    border: 1px solid var(--border);
+}
+
+/* === Animations === */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.processing {
+    animation: pulse 2s infinite;
+}
+
+/* === Responsive Design === */
 @media (min-width: 600px) {
-    .control-group { flex-direction: row; align-items: center; gap: 10px; }
-    label { margin-bottom: 0; flex-basis: 120px; flex-shrink: 0; text-align: right; }
-    input[type="file"], select { flex-grow: 1; width: auto; }
+    .control-group {
+        flex-direction: row;
+        align-items: center;
+        gap: 16px;
+    }
+
+    label {
+        margin-bottom: 0;
+        flex-basis: 140px;
+        flex-shrink: 0;
+        text-align: right;
+    }
+
+    input[type="file"],
+    select {
+        flex-grow: 1;
+        width: auto;
+    }
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 16px;
+    }
+
+    h1 {
+        font-size: 2rem;
+        margin: 40px 0 1rem 0;
+    }
+
+    .controls {
+        padding: 24px;
+    }
+
+    .language-selector {
+        position: relative;
+        top: 0;
+        right: 0;
+        margin-bottom: 20px;
+        justify-content: center;
+    }
+
+    #downloadButtons a {
+        display: block;
+        text-align: center;
+        margin: 8px 0;
+    }
+}
+
+/* === Dark Mode Support === */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --text-primary: #f9fafb;
+        --text-secondary: #d1d5db;
+        --background: #111827;
+        --surface: #1f2937;
+        --border: #374151;
+    }
+
+    body {
+        background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+    }
+}
+
+/* === Loading States === */
+.loading-dots::after {
+    content: '';
+    animation: loadingDots 1.5s infinite;
+}
+
+@keyframes loadingDots {
+    0%, 20% { content: ''; }
+    40% { content: '.'; }
+    60% { content: '..'; }
+    80%, 100% { content: '...'; }
 }
