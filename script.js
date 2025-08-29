@@ -1,12 +1,13 @@
-// script.js (UI Controller)
+// script.js (UI Controller) - VERSION 2 (FIXED)
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => { // *** שינוי 1: הוספת async ***
     // --- משתנים גלובליים ל-UI ---
     let selectedFile = null;
     let currentSrtContent = '';
     let sharedBlobUrlToRevoke = null;
     let currentTranslations = {};
     let isModelLoading = true;
+    let currentLang = 'he'; // שמירת השפה הנוכחית
 
     // --- רפרנסים לאלמנטים ---
     const allElements = {
@@ -26,13 +27,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- אתחול ה-Worker ---
     const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
-    worker.postMessage({ type: 'loadModel' }); // טען את המודל מיד
 
     // --- ניהול תרגום (i18n) ---
+    function getTranslation(key, replacements = {}) {
+        let text = currentTranslations[key] || key; // אם אין תרגום, החזר את המפתח כדי שנדע מה חסר
+        for (const placeholder in replacements) {
+            text = text.replace(`{${placeholder}}`, replacements[placeholder]);
+        }
+        return text;
+    }
+    
     async function loadLanguage(lang) {
         try {
             const response = await fetch(`./locales/${lang}.json`);
+            if (!response.ok) throw new Error(`Failed to load ${lang}.json`);
             currentTranslations = await response.json();
+            currentLang = lang;
             applyTranslations(lang);
         } catch (error) {
             console.error("I18n Error:", error);
@@ -50,7 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // תמיכה ב-HTML בתוך התרגום
         document.querySelectorAll('[data-i18n-key-html]').forEach(element => {
             const key = element.getAttribute('data-i18n-key-html');
             if (currentTranslations[key]) {
@@ -58,14 +67,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // עדכון כפתורים פעילים
         allElements.heButton.classList.toggle('active', lang === 'he');
         allElements.enButton.classList.toggle('active', lang === 'en');
     }
 
     // --- פונקציות עזר ל-UI ---
-    function updateStatus(text, progressValue = null, detailText = '') {
-        allElements.statusDiv.textContent = text;
+    function updateStatus(textKey, progressValue = null, detailText = '') {
+        allElements.statusDiv.textContent = getTranslation(textKey);
         allElements.progressDetailDiv.textContent = detailText;
         if (progressValue !== null && progressValue >= 0 && progressValue <= 100) {
             allElements.progressBar.style.display = 'block';
@@ -85,7 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'progress': if (file) detail = `Processing: ${file} (${progress.toFixed(1)}%)`; break;
             case 'done': detail = `Completed: ${file}`; break;
         }
-        updateStatus('Loading model...', progress, detail);
+        updateStatus('statusLoadingModel', progress, detail);
     }
     
     function setControlsDisabled(disabled) {
@@ -98,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // תקשורת מה-Worker
     worker.onmessage = (event) => {
-        const { status, data, text, progress, detail, message, srt } = event.data;
+        const { status, data, textKey, progress, detail, message, srt } = event.data;
 
         switch (status) {
             case 'modelProgress':
@@ -106,19 +114,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'modelReady':
                 isModelLoading = false;
-                updateStatus(currentTranslations.statusModelReady || 'Model loaded. Please select a file.');
+                updateStatus('statusModelReady');
                 setControlsDisabled(false);
                 break;
             case 'update':
-                // תרגום דינמי של הודעות מה-worker
-                let translatedText = text;
-                if(text.includes('Reading media file')) translatedText = 'קורא קובץ מדיה...';
-                // ... הוסף עוד תרגומים לפי הצורך
-                updateStatus(translatedText, progress, detail);
+                 // *** מקבלים מפתח מה-worker במקום טקסט ***
+                updateStatus(textKey, progress, detail);
                 break;
             case 'transcriptionProgress':
                 if (data.status === 'progress' && !data.file) {
-                    updateStatus(`Transcribing (${data.progress?.toFixed(1)}%)...`, data.progress, 'Processing...');
+                    const detailText = getTranslation('transcribingProgressDetail', { progress: data.progress?.toFixed(1) });
+                    updateStatus('statusTranscribing', data.progress, detailText);
                 }
                 break;
             case 'done':
@@ -139,12 +145,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 allElements.copySrtButton.style.display = 'inline-block';
                 allElements.downloadButtonsDiv.style.display = 'block';
 
-                updateStatus(currentTranslations.statusTranscriptionComplete || 'Transcription complete!');
+                updateStatus('statusTranscriptionComplete');
                 setControlsDisabled(false);
                 break;
             case 'error':
-                const errorMessage = currentTranslations.statusError?.replace('{message}', message) || `An error occurred: ${message}`;
-                updateStatus(errorMessage, null, '');
+                updateStatus('statusError', null, getTranslation('statusError', { message }));
                 console.error("Error from worker:", message);
                 setControlsDisabled(false);
                 break;
@@ -156,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedFile = event.target.files[0];
         if (selectedFile) {
             allElements.startButton.disabled = isModelLoading;
-            updateStatus(isModelLoading ? currentTranslations.statusLoadingModel : currentTranslations.statusFileSelected);
+            updateStatus(isModelLoading ? 'statusLoadingModel' : 'statusFileSelected');
             allElements.downloadButtonsDiv.style.display = 'none';
         } else {
             allElements.startButton.disabled = true;
@@ -165,10 +170,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     allElements.startButton.addEventListener('click', () => {
         if (!selectedFile) return;
-
         setControlsDisabled(true);
         allElements.downloadButtonsDiv.style.display = 'none';
-        
         worker.postMessage({
             type: 'transcribe',
             data: { file: selectedFile, language: allElements.languageSelect.value }
@@ -179,8 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentSrtContent) return;
         try {
             await navigator.clipboard.writeText(currentSrtContent);
-            const originalText = allElements.copySrtButton.textContent;
-            allElements.copySrtButton.textContent = currentTranslations.copiedButtonText || 'Copied!';
+            const originalText = getTranslation('copyContentButton');
+            allElements.copySrtButton.textContent = getTranslation('copiedButtonText');
             allElements.copySrtButton.disabled = true;
             setTimeout(() => {
                 allElements.copySrtButton.textContent = originalText;
@@ -196,6 +199,9 @@ document.addEventListener('DOMContentLoaded', () => {
     allElements.enButton.addEventListener('click', () => loadLanguage('en'));
 
     // --- אתחול ראשוני ---
+    // *** שינוי 3: מחכים לטעינת השפה לפני שממשיכים ***
+    await loadLanguage('he');
     setControlsDisabled(true); // מנוטרל עד שהמודל נטען
-    loadLanguage('he'); // טען עברית כברירת מחדל
+    updateStatus('statusLoadingModel');
+    worker.postMessage({ type: 'loadModel' });
 });

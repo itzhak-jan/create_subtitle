@@ -35,5 +35,12 @@
     "statusModelReady": "Model loaded. Please select a file.",
     "statusFileSelected": "File selected. Ready to start transcription.",
     "statusTranscriptionComplete": "Transcription complete!",
-    "statusError": "An error occurred: {message}"
+    "statusError": "An error occurred: {message}",
+    "statusReadingFile": "Reading media file...",
+    "statusDecodingAudio": "Decoding audio...",
+    "statusResampling": "Resampling audio...",
+    "statusConvertToMono": "Converting to mono...",
+    "statusTranscribing": "Transcribing...",
+    "transcribingProgressDetail": "Processing... ({progress}%)",
+    "statusProcessingResults": "Processing results..."
 }

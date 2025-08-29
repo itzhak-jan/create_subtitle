@@ -35,5 +35,12 @@
     "statusModelReady": "המודל נטען. אנא בחר קובץ.",
     "statusFileSelected": "קובץ נבחר. מוכן להתחיל בתמלול.",
     "statusTranscriptionComplete": "התמלול הושלם!",
-    "statusError": "אירעה שגיאה: {message}"
+    "statusError": "אירעה שגיאה: {message}",
+    "statusReadingFile": "קורא קובץ מדיה...",
+    "statusDecodingAudio": "מפענח אודיו...",
+    "statusResampling": "ממיר קצב דגימה...",
+    "statusConvertToMono": "ממיר למונו...",
+    "statusTranscribing": "מתמלל...",
+    "transcribingProgressDetail": "מעבד... ({progress}%)",
+    "statusProcessingResults": "מעבד תוצאות..."
 }
