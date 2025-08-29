@@ -1,24 +1,22 @@
-// worker.js - VERSION 3 (FINAL WITH CORS FIX)
+// worker.js - VERSION 4 (WITH DOWNLOAD SPEED CALCULATION)
 
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1/dist/transformers.min.js';
 
-// *** התיקון הקריטי לשגיאת ה-CORS ***
-// שורה זו אומרת לספרייה מאיזה דומיין מורשה למשוך את קבצי המודל.
-// זה חיוני כשהקוד רץ בתוך Web Worker.
 env.remoteHost = 'https://huggingface.co/';
-
-// שאר ההגדרות נשארות זהות
 env.allowLocalModels = false;
 env.allowRemoteModels = true;
 env.backends.onnx.wasm.proxy = true;
 
-// --- הגדרות ---
 const MODEL_NAME = 'Xenova/whisper-tiny.quant';
 const TARGET_SAMPLE_RATE = 16000;
 const TASK = 'transcribe';
 let transcriber = null;
 
-// --- פונקציות עזר (רצות בתוך ה-Worker) ---
+// --- משתנים לחישוב מהירות ההורדה ---
+let lastTimestamp = null;
+let lastLoadedBytes = 0;
+
+// --- פונקציות עזר (ללא שינוי) ---
 
 function convertToMono(audioBuffer) {
     if (audioBuffer.numberOfChannels === 1) return audioBuffer.getChannelData(0);
@@ -109,14 +107,43 @@ async function extractAndResampleAudio(mediaFile) {
     });
 }
 
+
 // --- מאזין להודעות מה-UI Thread ---
 self.onmessage = async (event) => {
     const { type, data } = event.data;
     try {
         if (type === 'loadModel') {
             if (transcriber) { self.postMessage({ status: 'modelReady' }); return; }
+            
             transcriber = await pipeline('automatic-speech-recognition', MODEL_NAME, {
-                progress_callback: (p) => self.postMessage({ status: 'modelProgress', data: p })
+                progress_callback: (p) => {
+                    // *** כאן מתבצע חישוב המהירות ***
+                    if (p.status === 'downloading') {
+                        const currentTime = performance.now();
+                        let speedText = '';
+                        // ודא שזו לא הפעם הראשונה, כדי שיהיה לנו הפרש זמנים
+                        if (lastTimestamp) {
+                            const timeDiffSeconds = (currentTime - lastTimestamp) / 1000;
+                            const bytesDiff = p.loaded - lastLoadedBytes;
+                            if (timeDiffSeconds > 0) {
+                                const bytesPerSecond = bytesDiff / timeDiffSeconds;
+                                // המר את המהירות ליחידות קריאות (MB/s)
+                                speedText = `${(bytesPerSecond / 1024 / 1024).toFixed(2)} MB/s`;
+                            }
+                        }
+                        // שמור את הנתונים הנוכחיים לפעם הבאה
+                        lastTimestamp = currentTime;
+                        lastLoadedBytes = p.loaded;
+
+                        // שלח את כל המידע, כולל המהירות, ל-UI
+                        self.postMessage({ status: 'modelProgress', data: { ...p, speedText } });
+                    } else {
+                        // אם זה לא סטטוס הורדה, אפס את המשתנים ושלח את המידע הרגיל
+                        lastTimestamp = null;
+                        lastLoadedBytes = 0;
+                        self.postMessage({ status: 'modelProgress', data: p });
+                    }
+                }
             });
             self.postMessage({ status: 'modelReady' });
         } else if (type === 'transcribe') {
@@ -127,8 +154,11 @@ self.onmessage = async (event) => {
             self.postMessage({ status: 'update', textKey: 'statusTranscribing', detail: `(${langText}) This may take some time...` });
 
             const output = await transcriber(audioData, {
-                chunk_length_s: 30, stride_length_s: 5, language: language === 'auto' ? undefined : language,
-                task: TASK, return_timestamps: true,
+                chunk_length_s: 30,
+                stride_length_s: 5,
+                language: language === 'auto' ? undefined : language,
+                task: TASK,
+                return_timestamps: true,
                 progress_callback: (p) => {
                     if (p.status === 'progress' && !p.file) self.postMessage({ status: 'transcriptionProgress', data: p });
                 }

@@ -1,16 +1,23 @@
-// script.js (UI Controller) - VERSION 2 (FIXED)
+// script.js (UI Controller) - VERSION 4 (WITH DOWNLOAD SPEED DISPLAY)
 
-document.addEventListener('DOMContentLoaded', async () => { // *** שינוי 1: הוספת async ***
-    // --- משתנים גלובליים ל-UI ---
-    let selectedFile = null;
-    let currentSrtContent = '';
-    let sharedBlobUrlToRevoke = null;
-    let currentTranslations = {};
-    let isModelLoading = true;
-    let currentLang = 'he'; // שמירת השפה הנוכחית
+document.addEventListener('DOMContentLoaded', async () => {
+    // --- State Management ---
+    let state = {
+        selectedFile: null,
+        currentSrtContent: '',
+        sharedBlobUrlToRevoke: null,
+        currentTranslations: {},
+        isModelLoading: true,
+        currentLang: 'he',
+        currentStatus: {
+            key: 'statusLoadingModel',
+            progress: null,
+            detail: ''
+        }
+    };
 
-    // --- רפרנסים לאלמנטים ---
-    const allElements = {
+    // --- Element References ---
+    const elements = {
         videoFileInput: document.getElementById('videoFile'),
         languageSelect: document.getElementById('languageSelect'),
         startButton: document.getElementById('startButton'),
@@ -25,100 +32,115 @@ document.addEventListener('DOMContentLoaded', async () => { // *** שינוי 1:
         enButton: document.getElementById('lang-en'),
     };
 
-    // --- אתחול ה-Worker ---
+    // --- Worker Initialization ---
     const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
 
-    // --- ניהול תרגום (i18n) ---
-    function getTranslation(key, replacements = {}) {
-        let text = currentTranslations[key] || key; // אם אין תרגום, החזר את המפתח כדי שנדע מה חסר
+    // --- I18n (Translation) Functions ---
+    const getTranslation = (key, replacements = {}) => {
+        let text = state.currentTranslations[key] || key;
         for (const placeholder in replacements) {
             text = text.replace(`{${placeholder}}`, replacements[placeholder]);
         }
         return text;
-    }
-    
-    async function loadLanguage(lang) {
+    };
+
+    const applyTranslations = () => {
+        const lang = state.currentLang;
+        document.documentElement.lang = lang;
+        document.documentElement.dir = (lang === 'he') ? 'rtl' : 'ltr';
+        document.querySelectorAll('[data-i18n-key]').forEach(el => {
+            const key = el.getAttribute('data-i18n-key');
+            el.textContent = getTranslation(key);
+        });
+        document.querySelectorAll('[data-i18n-key-html]').forEach(el => {
+            const key = el.getAttribute('data-i18n-key-html');
+            el.innerHTML = getTranslation(key);
+        });
+        elements.heButton.classList.toggle('active', lang === 'he');
+        elements.enButton.classList.toggle('active', lang === 'en');
+        renderStatus();
+    };
+
+    const loadLanguage = async (lang) => {
         try {
             const response = await fetch(`./locales/${lang}.json`);
             if (!response.ok) throw new Error(`Failed to load ${lang}.json`);
-            currentTranslations = await response.json();
-            currentLang = lang;
-            applyTranslations(lang);
+            state.currentTranslations = await response.json();
+            state.currentLang = lang;
+            applyTranslations();
         } catch (error) {
             console.error("I18n Error:", error);
         }
-    }
+    };
 
-    function applyTranslations(lang) {
-        document.documentElement.lang = lang;
-        document.documentElement.dir = (lang === 'he') ? 'rtl' : 'ltr';
-
-        document.querySelectorAll('[data-i18n-key]').forEach(element => {
-            const key = element.getAttribute('data-i18n-key');
-            if (currentTranslations[key]) {
-                element.textContent = currentTranslations[key];
-            }
-        });
-
-        document.querySelectorAll('[data-i18n-key-html]').forEach(element => {
-            const key = element.getAttribute('data-i18n-key-html');
-            if (currentTranslations[key]) {
-                element.innerHTML = currentTranslations[key];
-            }
-        });
-        
-        allElements.heButton.classList.toggle('active', lang === 'he');
-        allElements.enButton.classList.toggle('active', lang === 'en');
-    }
-
-    // --- פונקציות עזר ל-UI ---
-    function updateStatus(textKey, progressValue = null, detailText = '') {
-        allElements.statusDiv.textContent = getTranslation(textKey);
-        allElements.progressDetailDiv.textContent = detailText;
-        if (progressValue !== null && progressValue >= 0 && progressValue <= 100) {
-            allElements.progressBar.style.display = 'block';
-            allElements.progressBar.value = progressValue;
+    // --- UI Update Functions ---
+    const renderStatus = () => {
+        const { key, progress, detail } = state.currentStatus;
+        elements.statusDiv.textContent = getTranslation(key);
+        elements.progressDetailDiv.textContent = detail;
+        if (progress !== null && progress >= 0 && progress <= 100) {
+            elements.progressBar.style.display = 'block';
+            elements.progressBar.value = progress;
         } else {
-            allElements.progressBar.style.display = 'none';
+            elements.progressBar.style.display = 'none';
         }
-    }
+    };
 
-    function modelProgressCallback(data) {
-        const { status, file = '', progress = 0 } = data;
+    const updateStatus = (key, progress = null, detail = '') => {
+        state.currentStatus = { key, progress, detail };
+        renderStatus();
+    };
+
+    const modelProgressCallback = (data) => {
+        // *** שינוי: פירוק המידע החדש מהאובייקט ***
+        const { status, file = '', progress = 0, loaded, total, speedText } = data;
         let detail = '';
+        
         switch (status) {
-            case 'initiate': detail = `Starting: ${file}`; break;
-            case 'download': detail = `Downloading: ${file}`; break;
-            case 'downloading': detail = `Downloading: ${file} (${progress.toFixed(1)}%)`; break;
-            case 'progress': if (file) detail = `Processing: ${file} (${progress.toFixed(1)}%)`; break;
-            case 'done': detail = `Completed: ${file}`; break;
+            case 'initiate':
+                detail = `Starting: ${file}`;
+                break;
+            case 'download':
+                detail = `Downloading: ${file}`;
+                break;
+            case 'downloading':
+                // *** כאן בניית המחרוזת החדשה והמפורטת ***
+                const loadedMB = (loaded / 1024 / 1024).toFixed(1);
+                const totalMB = (total / 1024 / 1024).toFixed(1);
+                // הוסף את מהירות ההורדה אם היא קיימת
+                const speedInfo = speedText ? `@ ${speedText}` : '';
+                
+                detail = `Downloading: ${file} (${progress.toFixed(1)}%) - ${loadedMB}MB / ${totalMB}MB ${speedInfo}`;
+                break;
+            case 'progress':
+                if (file) detail = `Processing: ${file} (${progress.toFixed(1)}%)`;
+                break;
+            case 'done':
+                detail = `Completed: ${file}`;
+                break;
         }
         updateStatus('statusLoadingModel', progress, detail);
-    }
-    
-    function setControlsDisabled(disabled) {
-        allElements.videoFileInput.disabled = disabled;
-        allElements.languageSelect.disabled = disabled;
-        allElements.startButton.disabled = disabled || !selectedFile;
-    }
+    };
 
-    // --- מאזינים לאירועים ---
-    
-    // תקשורת מה-Worker
+    const setControlsDisabled = (disabled) => {
+        elements.videoFileInput.disabled = disabled;
+        elements.languageSelect.disabled = disabled;
+        elements.startButton.disabled = disabled || !state.selectedFile;
+    };
+
+    // --- Worker Event Listener ---
     worker.onmessage = (event) => {
         const { status, data, textKey, progress, detail, message, srt } = event.data;
-
         switch (status) {
             case 'modelProgress':
                 modelProgressCallback(data);
                 break;
             case 'modelReady':
-                isModelLoading = false;
+                state.isModelLoading = false;
                 updateStatus('statusModelReady');
                 setControlsDisabled(false);
                 break;
             case 'update':
-                 // *** מקבלים מפתח מה-worker במקום טקסט ***
                 updateStatus(textKey, progress, detail);
                 break;
             case 'transcriptionProgress':
@@ -128,23 +150,19 @@ document.addEventListener('DOMContentLoaded', async () => { // *** שינוי 1:
                 }
                 break;
             case 'done':
-                currentSrtContent = srt;
-                const fNameBase = selectedFile.name.substring(0, selectedFile.name.lastIndexOf('.')) || 'subtitles';
-                const blob = new Blob([currentSrtContent], { type: 'text/plain;charset=utf-8' });
-                if (sharedBlobUrlToRevoke) URL.revokeObjectURL(sharedBlobUrlToRevoke);
-                sharedBlobUrlToRevoke = URL.createObjectURL(blob);
-
-                allElements.downloadLinkSrt.href = sharedBlobUrlToRevoke;
-                allElements.downloadLinkSrt.download = `${fNameBase}.srt`;
-                allElements.downloadLinkSrt.style.display = 'inline-block';
-                
-                allElements.downloadLinkTxt.href = sharedBlobUrlToRevoke;
-                allElements.downloadLinkTxt.download = `${fNameBase}.txt`;
-                allElements.downloadLinkTxt.style.display = 'inline-block';
-
-                allElements.copySrtButton.style.display = 'inline-block';
-                allElements.downloadButtonsDiv.style.display = 'block';
-
+                state.currentSrtContent = srt;
+                const fNameBase = state.selectedFile.name.substring(0, state.selectedFile.name.lastIndexOf('.')) || 'subtitles';
+                const blob = new Blob([state.currentSrtContent], { type: 'text/plain;charset=utf-8' });
+                if (state.sharedBlobUrlToRevoke) URL.revokeObjectURL(state.sharedBlobUrlToRevoke);
+                state.sharedBlobUrlToRevoke = URL.createObjectURL(blob);
+                elements.downloadLinkSrt.href = state.sharedBlobUrlToRevoke;
+                elements.downloadLinkSrt.download = `${fNameBase}.srt`;
+                elements.downloadLinkSrt.style.display = 'inline-block';
+                elements.downloadLinkTxt.href = state.sharedBlobUrlToRevoke;
+                elements.downloadLinkTxt.download = `${fNameBase}.txt`;
+                elements.downloadLinkTxt.style.display = 'inline-block';
+                elements.copySrtButton.style.display = 'inline-block';
+                elements.downloadButtonsDiv.style.display = 'block';
                 updateStatus('statusTranscriptionComplete');
                 setControlsDisabled(false);
                 break;
@@ -155,39 +173,39 @@ document.addEventListener('DOMContentLoaded', async () => { // *** שינוי 1:
                 break;
         }
     };
-    
-    // אירועי משתמש
-    allElements.videoFileInput.addEventListener('change', (event) => {
-        selectedFile = event.target.files[0];
-        if (selectedFile) {
-            allElements.startButton.disabled = isModelLoading;
-            updateStatus(isModelLoading ? 'statusLoadingModel' : 'statusFileSelected');
-            allElements.downloadButtonsDiv.style.display = 'none';
+
+    // --- User Event Listeners ---
+    elements.videoFileInput.addEventListener('change', (event) => {
+        state.selectedFile = event.target.files[0];
+        if (state.selectedFile) {
+            elements.startButton.disabled = state.isModelLoading;
+            updateStatus(state.isModelLoading ? 'statusLoadingModel' : 'statusFileSelected');
+            elements.downloadButtonsDiv.style.display = 'none';
         } else {
-            allElements.startButton.disabled = true;
+            elements.startButton.disabled = true;
         }
     });
 
-    allElements.startButton.addEventListener('click', () => {
-        if (!selectedFile) return;
+    elements.startButton.addEventListener('click', () => {
+        if (!state.selectedFile) return;
         setControlsDisabled(true);
-        allElements.downloadButtonsDiv.style.display = 'none';
+        elements.downloadButtonsDiv.style.display = 'none';
         worker.postMessage({
             type: 'transcribe',
-            data: { file: selectedFile, language: allElements.languageSelect.value }
+            data: { file: state.selectedFile, language: elements.languageSelect.value }
         });
     });
-    
-    allElements.copySrtButton.addEventListener('click', async () => {
-        if (!currentSrtContent) return;
+
+    elements.copySrtButton.addEventListener('click', async () => {
+        if (!state.currentSrtContent) return;
         try {
-            await navigator.clipboard.writeText(currentSrtContent);
+            await navigator.clipboard.writeText(state.currentSrtContent);
             const originalText = getTranslation('copyContentButton');
-            allElements.copySrtButton.textContent = getTranslation('copiedButtonText');
-            allElements.copySrtButton.disabled = true;
+            elements.copySrtButton.textContent = getTranslation('copiedText');
+            elements.copySrtButton.disabled = true;
             setTimeout(() => {
-                allElements.copySrtButton.textContent = originalText;
-                allElements.copySrtButton.disabled = false;
+                elements.copySrtButton.textContent = originalText;
+                elements.copySrtButton.disabled = false;
             }, 2000);
         } catch (err) {
             console.error('Failed to copy: ', err);
@@ -195,13 +213,15 @@ document.addEventListener('DOMContentLoaded', async () => { // *** שינוי 1:
         }
     });
 
-    allElements.heButton.addEventListener('click', () => loadLanguage('he'));
-    allElements.enButton.addEventListener('click', () => loadLanguage('en'));
+    elements.heButton.addEventListener('click', () => loadLanguage('he'));
+    elements.enButton.addEventListener('click', () => loadLanguage('en'));
 
-    // --- אתחול ראשוני ---
-    // *** שינוי 3: מחכים לטעינת השפה לפני שממשיכים ***
-    await loadLanguage('he');
-    setControlsDisabled(true); // מנוטרל עד שהמודל נטען
-    updateStatus('statusLoadingModel');
-    worker.postMessage({ type: 'loadModel' });
+    // --- Initial Page Load Sequence ---
+    const initialize = async () => {
+        setControlsDisabled(true);
+        await loadLanguage('he');
+        worker.postMessage({ type: 'loadModel' });
+    };
+
+    initialize();
 });
