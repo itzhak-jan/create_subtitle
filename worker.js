@@ -1,15 +1,25 @@
+// worker.js - VERSION 3 (FINAL WITH CORS FIX)
+
 import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1/dist/transformers.min.js';
 
+// *** התיקון הקריטי לשגיאת ה-CORS ***
+// שורה זו אומרת לספרייה מאיזה דומיין מורשה למשוך את קבצי המודל.
+// זה חיוני כשהקוד רץ בתוך Web Worker.
+env.remoteHost = 'https://huggingface.co/';
+
+// שאר ההגדרות נשארות זהות
 env.allowLocalModels = false;
 env.allowRemoteModels = true;
 env.backends.onnx.wasm.proxy = true;
 
+// --- הגדרות ---
 const MODEL_NAME = 'Xenova/whisper-tiny.quant';
 const TARGET_SAMPLE_RATE = 16000;
 const TASK = 'transcribe';
 let transcriber = null;
 
-// פונקציות עזר (ללא שינוי)
+// --- פונקציות עזר (רצות בתוך ה-Worker) ---
+
 function convertToMono(audioBuffer) {
     if (audioBuffer.numberOfChannels === 1) return audioBuffer.getChannelData(0);
     const numChannels = audioBuffer.numberOfChannels, numSamples = audioBuffer.length;
@@ -48,7 +58,6 @@ function chunksToSRT(chunks) {
 }
 
 async function extractAndResampleAudio(mediaFile) {
-    // *** שינוי: שולח מפתחות במקום טקסט ***
     self.postMessage({ status: 'update', textKey: 'statusReadingFile', progress: 0, detail: 'Starting...' });
     
     const fileReader = new FileReader();
@@ -100,6 +109,7 @@ async function extractAndResampleAudio(mediaFile) {
     });
 }
 
+// --- מאזין להודעות מה-UI Thread ---
 self.onmessage = async (event) => {
     const { type, data } = event.data;
     try {
