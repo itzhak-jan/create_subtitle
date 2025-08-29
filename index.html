@@ -1,122 +1,71 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl"> <!-- כיווניות עברית -->
+<!-- lang ו-dir יתעדכנו על ידי JavaScript -->
+<html lang="he" dir="rtl">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מתמלל וידאו בדפדפן</title>
-    <link rel="stylesheet" href="style.css"> <!-- קישור ל-CSS (ודא שהקובץ קיים) -->
+    <title data-i18n-key="pageTitle">מתמלל וידאו בדפדפן</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <h1>מתמלל וידאו פשוט (Client-Side)</h1>
-    <p>העלה קובץ וידאו (mp4, mov, avi, mkv) או אודיו (mp3, wav), בחר שפה, ולחץ "התחל תמלול" כדי לקבל קובץ כתוביות (SRT).
-    </p>
-    <p><strong>חשוב:</strong> התהליך מתבצע כולו בדפדפן שלך. שום קובץ לא נשלח לשרת. הביצועים תלויים במחשב שלך. בפעם
-        הראשונה, הורדת מודל השפה עשויה לקחת מספר דקות.</p>
+    <div class="lang-switcher">
+        <button id="lang-he">עברית</button>
+        <button id="lang-en">English</button>
+    </div>
+
+    <h1 data-i18n-key="mainHeading"></h1>
+    <p data-i18n-key="introParagraph1"></p>
+    <p><strong data-i18n-key="importantNotice"></strong></p>
 
     <div class="controls">
         <div class="control-group">
-            <label for="videoFile">1. בחר קובץ:</label>
+            <label for="videoFile" data-i18n-key="selectFileLabel"></label>
             <input type="file" id="videoFile" accept="video/*, audio/*">
         </div>
         <div class="control-group">
-            <label for="languageSelect">2. בחר שפה:</label>
+            <label for="languageSelect" data-i18n-key="selectLanguageLabel"></label>
             <select id="languageSelect">
-                <option value="auto" selected>זיהוי אוטומטי</option> <!-- ברירת מחדל -->
-                <option value="he">עברית (Hebrew)</option>
-                <option value="en">אנגלית (English)</option>
-                <option value="ar">ערבית (Arabic)</option>
-                <option value="ru">רוסית (Russian)</option>
-                <option value="zh">סינית (Chinese)</option>
-                <option value="ko">קוריאנית (Korean)</option>
-                <option value="ja">יפנית (Japanese)</option>
-                <option value="fr">צרפתית (French)</option>
-                <option value="de">גרמנית (German)</option>
-                <option value="es">ספרדית (Spanish)</option>
-                <option value="it">איטלקית (Italian)</option>
-                <!-- אפשר להוסיף עוד שפות -->
+                <option value="auto" selected data-i18n-key="langOptionAuto"></option>
+                <option value="he" data-i18n-key="langOptionHe"></option>
+                <option value="en" data-i18n-key="langOptionEn"></option>
+                <option value="ar" data-i18n-key="langOptionAr"></option>
+                <option value="ru" data-i18n-key="langOptionRu"></option>
+                <option value="zh" data-i18n-key="langOptionZh"></option>
+                <option value="ko" data-i18n-key="langOptionKo"></option>
+                <option value="ja" data-i18n-key="langOptionJa"></option>
+                <option value="fr" data-i18n-key="langOptionFr"></option>
+                <option value="de" data-i18n-key="langOptionDe"></option>
+                <option value="es" data-i18n-key="langOptionEs"></option>
+                <option value="it" data-i18n-key="langOptionIt"></option>
             </select>
         </div>
-        <!-- כפתור התחל תמלול -->
-        <button id="startButton" disabled>3. התחל תמלול</button>
+        <button id="startButton" disabled data-i18n-key="startButton"></button>
     </div>
 
-    <div id="status">טוען מודל שפה... (ייתכן וייקח זמן בפעם הראשונה)</div>
+    <div id="status"></div>
     <progress id="progressBar" value="0" max="100" style="display: none;"></progress>
     <div id="progressDetail" style="font-size: 0.9em; margin-top: 5px; min-height: 1.2em;"></div>
-    <!-- להצגת פרטי התקדמות -->
 
-    <div id="downloadButtons" style="margin-top: 15px; display: none;"> <!-- מוסתר בהתחלה -->
-        <a href="#" id="downloadLinkSrt" download="subtitles.srt" style="display: none;">הורד כתוביות (SRT)</a>
-        <a href="#" id="downloadLinkTxt" download="subtitles.txt"
-            style="display: none; margin-left: 15px; background-color: #007bff; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">הורד
-            כ-TXT (זהה ל-SRT)</a>
-        <!-- כפתור העתקת תוכן ה-SRT/TXT -->
-        <button id="copySrtButton" class="copy-button" style="display: none; margin-left: 15px;">העתק תוכן</button>
+    <div id="downloadButtons" style="margin-top: 15px; display: none;">
+        <a href="#" id="downloadLinkSrt" download="subtitles.srt" style="display: none;" data-i18n-key="downloadSrtButton"></a>
+        <a href="#" id="downloadLinkTxt" download="subtitles.txt" style="display: none; margin-left: 15px; background-color: #007bff; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;" data-i18n-key="downloadTxtButton"></a>
+        <button id="copySrtButton" class="copy-button" style="display: none; margin-left: 15px;" data-i18n-key="copyContentButton"></button>
     </div>
 
     <hr style="margin-top: 30px;">
 
     <div class="clarifications">
-        <!-- *** שינוי כותרת *** -->
-        <h2>מידע חשוב: מגבלות הכלי וטיפים לשימוש</h2>
-
-        <p><strong>חשוב להבין את מגבלות הכלי:</strong></p>
-        <ul>
-            <li><strong>תמלול מבוסס שמע בלבד:</strong> הכלי "מאזין" לאודיו וממיר אותו לטקסט. הוא אינו "רואה" את הוידאו
-                או מבין הקשר חזותי.</li>
-            <li><strong>רגישות לרעשים ואיכות שמע:</strong> איכות התמלול תלויה מאוד באיכות השמע בקובץ המקורי. רעשי רקע,
-                מוזיקה חזקה, דיבור לא ברור או חופף, ומספר דוברים בו-זמנית עלולים לגרום לשגיאות רבות.</li>
-            <li><strong>שמות, מונחים וביטויים ייחודיים:</strong> מודל השפה (במיוחד הקטן שרץ בדפדפן) עשוי להתקשות בזיהוי
-                נכון של שמות פרטיים, שמות מקומות, מותגים, ז'רגון מקצועי או ביטויי סלנג.</li>
-            <li><strong>מודל שפה קטן יחסית:</strong> כדי לאפשר ריצה בתוך הדפדפן שלכם, הכלי משתמש בגרסה קטנה יחסית של
-                מודל Whisper. גרסאות גדולות יותר (שדורשות שרתים חזקים) יכולות להציע דיוק גבוה יותר.</li>
-            <li><strong>ביצועים תלויי מחשב:</strong> כל העיבוד מתבצע במחשב שלכם. משך זמן התמלול תלוי ישירות בכוח העיבוד
-                של המחשב ובאורך הקובץ. קבצים ארוכים מאוד עלולים לקחת זמן רב או אף להיכשל במחשבים חלשים.</li>
-        </ul>
-        <p>אנו מתנצלים מראש על שגיאות אפשריות בתמלול.</p>
-
-        <p><strong>כדי לקבל את התוצאה הטובה ביותר:</strong></p>
-        <ol>
-            <li><strong>בחירת שפה מראש:</strong> <strong>אנא בחרו את השפה העיקרית</strong> המדוברת לפני לחיצה על "התחל
-                תמלול". ציון השפה מראש משפר את הדיוק.</li>
-            <li><strong>עיבוד ושיפור באמצעות כלי AI חיצוני:</strong> לאחר קבלת הקובץ, מומלץ להעביר את התוכן דרך כלי AI
-                חיצוני (כמו <a href="https://aistudio.google.com/app/prompts/new_chat" target="_blank">Google AI Studio
-                    / Gemini</a>, <a href="https://chat.openai.com/" target="_blank">ChatGPT</a>, Claude וכו') לתיקונים
-                ושיפורים.</li>
-            <li>
-                <strong>הכנת הקובץ לכלי AI:</strong>
-                <ul>
-                    <li>רוב כלי ה-AI אינם קוראים קבצי `.srt` ישירות. תוכל להשתמש בקובץ ה-`.txt` שהורדת (הוא מכיל את אותו
-                        תוכן SRT אך עם סיומת שונה, מה שמקל על העלאתו או העתקתו לכלי ה-AI).</li>
-                    <li>**לחלופין:** לחץ על כפתור "העתק תוכן" <button id="copySrtButtonPlaceholder" class="copy-button"
-                            style="display: none;">העתק תוכן</button> שיופיע ליד קישורי ההורדה לאחר סיום התמלול, והדבק
-                        את התוכן ישירות בכלי ה-AI.</li>
-                    <!-- *** הבהרה והזהרה לגבי תוכן ה-TXT *** -->
-                    <li>**שים לב:** התוכן בקובץ ה-TXT עדיין בפורמט SRT (כולל מספרים וחותמות זמן). כלי ה-AI עשוי להתייחס
-                        למידע זה כחלק מהטקסט. נסו לבקש ממנו להתעלם מהמספרים וחותמות הזמן ולהתמקד בתיקון הטקסט עצמו.</li>
-                    <li><strong>הנחיה מומלצת לכלי ה-AI:</strong>
-                        <button id="copyPromptButton" class="copy-button" style="display: inline-block;">העתק
-                            הנחיה</button>
-                        <br>
-                        <code id="promptTextElement">
-                            "אנא תקן את הטקסט הבא, המגיע מקובץ כתוביות (התעלם ממספרי השורות וחותמות הזמן): סדר את המשפטים, תקן שגיאות כתיב ודקדוק, הוסף פיסוק הגיוני, וודא שהתחביר קריא וברור. שמור על המשמעות המקורית."</code>
-                    </li>
-                    <li>לאחר קבלת הטקסט המתוקן מה-AI, אם ברצונך להשתמש בו ככתוביות, הדבק אותו בעורך טקסט ושמור כקובץ עם
-                        סיומת `.srt`.</li>
-                </ul>
-            </li>
-            <li><strong>שימוש בקובץ שמע נקי:</strong> איכות שמע טובה יותר = תמלול טוב יותר.</li>
-        </ol>
-
-        <p><strong>מה הכלי *לא* עושה כרגע?</strong></p>
-        <ul>
-            <li>זיהוי דוברים (Speaker Diarization).</li>
-            <li>תרגום אוטומטי.</li>
-            <li>עריכה מתקדמת.</li>
-        </ul>
-        <p>מקווים שהכלי יהיה לכם לעזר!</p>
+        <h2 data-i18n-key="clarificationsTitle"></h2>
+        <p><strong data-i18n-key="clarificationsP1"></strong></p>
+        <ul data-i18n-key-html="clarificationsList1"></ul>
+        <p data-i18n-key="apology"></p>
+        <p><strong data-i18n-key="bestResultsTitle"></strong></p>
+        <ol data-i18n-key-html="clarificationsList2"></ol>
+        <p><strong data-i18n-key="whatItDoesNotDoTitle"></strong></p>
+        <ul data-i18n-key-html="clarificationsList3"></ul>
+        <p data-i18n-key="hopeItHelps"></p>
     </div>
 
     <script type="module" src="script.js"></script>
