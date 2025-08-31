@@ -26,9 +26,9 @@ let elements = {};
 // === Translation System ===
 async function loadTranslations(lang) {
     try {
-        const response = await fetch(`${lang}.json`);
+        const response = await fetch(`locales/${lang}.json`);
         if (!response.ok) {
-            console.warn(`Failed to load ${lang}.json, using fallback`);
+            console.warn(`Failed to load locales/${lang}.json, using fallback`);
             return getFallbackTranslations(lang);
         }
         return await response.json();

@@ -40,8 +40,9 @@ create_subtitle/
 ├── style.css              # עיצוב מודרני ורספונסיבי
 ├── script.js              # הלוגיקה הראשית
 ├── transcription-worker.js # Web Worker לעיבוד כבד
-├── he.json                # תרגומים לעברית
-├── en.json                # תרגומים לאנגלית
+├── locales/               # תיקיית קבצי השפה
+│   ├── he.json           # תרגומים לעברית
+│   └── en.json           # תרגומים לאנגלית
 └── README.md              # מדריך זה
 ```
 
