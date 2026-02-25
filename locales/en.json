@@ -19,6 +19,10 @@
     "es": "Spanish (Español)",
     "it": "Italian (Italiano)"
   },
+  "cancel_button": "Cancel Process",
+  "cancelling": "Cancelling process...",
+  "cancelled": "Process cancelled",
+  "estimated_time_label": "Estimated time",
   "status_messages": {
     "loading_model": "Loading language model...",
     "select_file": "Please select a file and choose language.",
