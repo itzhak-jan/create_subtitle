@@ -18,6 +18,9 @@ let sharedBlobUrlToRevoke = null;
 let processingCancelled = false;
 let startTime = null;
 let isActivelyProcessing = false;
+let wakeLock = null;
+let silentAudioSource = null;
+let silentAudioContext = null;
 let currentLanguage = 'he';
 let translations = {};
 
@@ -545,6 +548,46 @@ async function copyToClipboard(text, button, originalText) {
     }
 }
 
+// === Background Processing Helpers ===
+async function acquireWakeLock() {
+    if ('wakeLock' in navigator) {
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+        } catch (e) {
+            console.warn('Wake lock failed:', e);
+        }
+    }
+}
+
+function releaseWakeLock() {
+    if (wakeLock) {
+        wakeLock.release().catch(console.warn);
+        wakeLock = null;
+    }
+}
+
+function startSilentAudio() {
+    try {
+        silentAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        // 1-second silent buffer, looped — keeps the browser audio session alive
+        const buffer = silentAudioContext.createBuffer(1, silentAudioContext.sampleRate, silentAudioContext.sampleRate);
+        silentAudioSource = silentAudioContext.createBufferSource();
+        silentAudioSource.buffer = buffer;
+        silentAudioSource.loop = true;
+        silentAudioSource.connect(silentAudioContext.destination);
+        silentAudioSource.start();
+    } catch (e) {
+        console.warn('Silent audio failed:', e);
+    }
+}
+
+function stopSilentAudio() {
+    try {
+        if (silentAudioSource) { silentAudioSource.stop(); silentAudioSource = null; }
+        if (silentAudioContext) { silentAudioContext.close(); silentAudioContext = null; }
+    } catch (e) { /* ignore */ }
+}
+
 // === Main Transcription Process ===
 async function startTranscription() {
     if (!selectedFile) {
@@ -557,7 +600,11 @@ async function startTranscription() {
     currentSrtContent = '';
     startTime = Date.now();
     isActivelyProcessing = true;
-    
+
+    // Keep device/tab alive during processing
+    acquireWakeLock();
+    startSilentAudio();
+
     // Update UI
     setControlsState(false);
     hideDownloadSection();
@@ -658,6 +705,8 @@ async function startTranscription() {
         currentSrtContent = '';
     } finally {
         isActivelyProcessing = false;
+        releaseWakeLock();
+        stopSilentAudio();
         // Clean up
         progressManager.hide();
         if (elements.cancelButton) {
