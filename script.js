@@ -366,22 +366,30 @@ function formatTimeToSRT(seconds) {
 function chunksToSRT(chunks) {
     let srt = '';
     let index = 1;
-    
-    chunks.forEach(chunk => {
-        if (chunk.timestamp && 
-            typeof chunk.timestamp[0] === 'number' && 
-            typeof chunk.timestamp[1] === 'number' &&
-            chunk.timestamp[0] <= chunk.timestamp[1] && 
+
+    chunks.forEach((chunk, i) => {
+        if (chunk.timestamp &&
+            typeof chunk.timestamp[0] === 'number' &&
             chunk.text?.trim()) {
-            
-            const startTime = formatTimeToSRT(chunk.timestamp[0]);
-            const endTime = formatTimeToSRT(chunk.timestamp[1]);
+
+            const start = chunk.timestamp[0];
+            // If end timestamp is null/undefined, use next chunk's start or start+2s
+            let end = chunk.timestamp[1];
+            if (typeof end !== 'number' || end <= start) {
+                const nextChunk = chunks[i + 1];
+                end = (typeof nextChunk?.timestamp?.[0] === 'number')
+                    ? nextChunk.timestamp[0]
+                    : start + 2;
+            }
+
+            const startTime = formatTimeToSRT(start);
+            const endTime = formatTimeToSRT(end);
             srt += `${index++}\n${startTime} --> ${endTime}\n${chunk.text.trim()}\n\n`;
         } else {
             console.warn("Skipped invalid chunk:", chunk);
         }
     });
-    
+
     return srt;
 }
 
