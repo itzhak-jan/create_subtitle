@@ -95,6 +95,11 @@ function updateTranslations() {
         }
     });
     
+    // Update placeholders
+    document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+        el.placeholder = getTranslation(el.getAttribute('data-i18n-placeholder'));
+    });
+
     // Update HTML attributes
     document.documentElement.lang = currentLanguage;
     document.documentElement.dir = currentLanguage === 'he' ? 'rtl' : 'ltr';
@@ -696,6 +701,18 @@ function showDownloadSection() {
     if (elements.downloadButtons) {
         elements.downloadButtons.style.display = 'block';
     }
+
+    // Show and reset translation section
+    const translationSection = document.getElementById('translationSection');
+    if (translationSection) {
+        translationSection.style.display = 'block';
+        document.getElementById('googleTranslateStatus').style.display = 'none';
+        document.getElementById('googleTranslateStatus').textContent = '';
+        document.getElementById('downloadTranslatedSrtLink').style.display = 'none';
+        document.getElementById('aiTranslationPanel').style.display = 'none';
+        document.getElementById('aiResponseTextarea').value = '';
+        document.getElementById('downloadAiTranslatedLink').style.display = 'none';
+    }
 }
 
 function hideDownloadSection() {
@@ -713,6 +730,65 @@ function hideDownloadSection() {
         URL.revokeObjectURL(sharedBlobUrlToRevoke);
         sharedBlobUrlToRevoke = null;
     }
+
+    const translationSection = document.getElementById('translationSection');
+    if (translationSection) translationSection.style.display = 'none';
+}
+
+// === Translation ===
+function parseSRT(content) {
+    return content.trim().split(/\n\n+/).map(block => {
+        const lines = block.trim().split('\n');
+        return { index: lines[0], timestamp: lines[1] || '', text: lines.slice(2).join('\n') };
+    }).filter(b => b.timestamp.includes('-->'));
+}
+
+async function googleTranslateText(text, targetLang) {
+    if (!text.trim()) return text;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(targetLang)}&dt=t&q=${encodeURIComponent(text)}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    return data[0].map(s => s[0]).join('');
+}
+
+async function translateWithGoogle(targetLang) {
+    const blocks = parseSRT(currentSrtContent);
+    if (!blocks.length) throw new Error('No subtitle blocks found');
+
+    const statusEl = document.getElementById('googleTranslateStatus');
+    const BATCH = 10;
+    const translatedTexts = [];
+
+    for (let i = 0; i < blocks.length; i += BATCH) {
+        const slice = blocks.slice(i, Math.min(i + BATCH, blocks.length));
+        const results = await Promise.all(slice.map(b => googleTranslateText(b.text, targetLang)));
+        translatedTexts.push(...results);
+        const pct = Math.round(Math.min((i + BATCH) / blocks.length, 1) * 100);
+        if (statusEl) statusEl.textContent = `${getTranslation('translation.translating', 'מתרגם...')} ${pct}%`;
+    }
+
+    return blocks.map((b, i) => `${b.index}\n${b.timestamp}\n${translatedTexts[i]}`).join('\n\n') + '\n';
+}
+
+function buildTranslationPrompt(targetLang) {
+    const langNames = {
+        he: 'Hebrew', en: 'English', ar: 'Arabic', ru: 'Russian',
+        es: 'Spanish', fr: 'French', de: 'German', pt: 'Portuguese',
+        'zh-CN': 'Chinese (Simplified)', ja: 'Japanese', tr: 'Turkish'
+    };
+    const targetName = langNames[targetLang] || targetLang;
+    return `You are a professional subtitle translator.
+Translate the following SRT subtitle file to ${targetName}.
+
+Rules:
+- Preserve the SRT format exactly (line numbers, timestamps, blank lines between blocks)
+- Keep names, places and recurring terms consistent throughout
+- Do not merge or split subtitle blocks
+- Match the original pacing and tone
+- Return ONLY the translated SRT content, no explanations
+
+${currentSrtContent}`;
 }
 
 // === Event Handlers ===
@@ -781,6 +857,94 @@ function setupEventListeners() {
         });
     }
     
+    // Google Translate button
+    const translateGoogleBtn = document.getElementById('translateGoogleBtn');
+    if (translateGoogleBtn) {
+        translateGoogleBtn.addEventListener('click', async () => {
+            const targetLang = document.getElementById('targetLangSelect')?.value;
+            if (!targetLang) return;
+
+            const statusEl = document.getElementById('googleTranslateStatus');
+            const dlLink = document.getElementById('downloadTranslatedSrtLink');
+            const aiPanel = document.getElementById('aiTranslationPanel');
+
+            if (aiPanel) aiPanel.style.display = 'none';
+            if (dlLink) dlLink.style.display = 'none';
+            if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = getTranslation('translation.translating', 'מתרגם...'); }
+            translateGoogleBtn.disabled = true;
+
+            try {
+                const translated = await translateWithGoogle(targetLang);
+                const fileNameBase = selectedFile?.name.substring(0, selectedFile.name.lastIndexOf('.')) || 'subtitles';
+                const blob = new Blob([translated], { type: 'text/plain;charset=utf-8' });
+                if (dlLink) {
+                    dlLink.href = URL.createObjectURL(blob);
+                    dlLink.download = `${fileNameBase}_${targetLang}.srt`;
+                    dlLink.style.display = 'inline-block';
+                }
+                if (statusEl) statusEl.textContent = getTranslation('translation.translation_done', 'התרגום הושלם! ✓');
+            } catch (err) {
+                if (statusEl) statusEl.textContent = `${getTranslation('translation.translation_error', 'שגיאה בתרגום')}: ${err.message}`;
+            } finally {
+                translateGoogleBtn.disabled = false;
+            }
+        });
+    }
+
+    // AI Translate toggle button
+    const translateAiBtn = document.getElementById('translateAiBtn');
+    if (translateAiBtn) {
+        translateAiBtn.addEventListener('click', () => {
+            const aiPanel = document.getElementById('aiTranslationPanel');
+            const statusEl = document.getElementById('googleTranslateStatus');
+            const dlLink = document.getElementById('downloadTranslatedSrtLink');
+            if (statusEl) statusEl.style.display = 'none';
+            if (dlLink) dlLink.style.display = 'none';
+            if (aiPanel) aiPanel.style.display = aiPanel.style.display === 'none' ? 'block' : 'none';
+        });
+    }
+
+    // Open AI service buttons
+    const aiServiceUrls = {
+        openClaudeBtn: 'https://claude.ai',
+        openGeminiBtn: 'https://gemini.google.com',
+        openChatgptBtn: 'https://chatgpt.com'
+    };
+    Object.entries(aiServiceUrls).forEach(([id, url]) => {
+        const btn = document.getElementById(id);
+        if (btn) btn.addEventListener('click', () => window.open(url, '_blank'));
+    });
+
+    // Copy translation prompt button
+    const copyTranslationPromptBtn = document.getElementById('copyTranslationPromptBtn');
+    if (copyTranslationPromptBtn) {
+        copyTranslationPromptBtn.addEventListener('click', async () => {
+            const targetLang = document.getElementById('targetLangSelect')?.value || 'en';
+            const prompt = buildTranslationPrompt(targetLang);
+            const originalText = getTranslation('translation.copy_prompt', '📋 העתק פרומפט');
+            await copyToClipboard(prompt, copyTranslationPromptBtn, originalText);
+        });
+    }
+
+    // AI response textarea — show download link when content is pasted
+    const aiResponseTextarea = document.getElementById('aiResponseTextarea');
+    const downloadAiLink = document.getElementById('downloadAiTranslatedLink');
+    if (aiResponseTextarea && downloadAiLink) {
+        aiResponseTextarea.addEventListener('input', () => {
+            const content = aiResponseTextarea.value.trim();
+            if (content) {
+                const targetLang = document.getElementById('targetLangSelect')?.value || 'translated';
+                const fileNameBase = selectedFile?.name.substring(0, selectedFile.name.lastIndexOf('.')) || 'subtitles';
+                const blob = new Blob([aiResponseTextarea.value], { type: 'text/plain;charset=utf-8' });
+                downloadAiLink.href = URL.createObjectURL(blob);
+                downloadAiLink.download = `${fileNameBase}_${targetLang}.srt`;
+                downloadAiLink.style.display = 'inline-block';
+            } else {
+                downloadAiLink.style.display = 'none';
+            }
+        });
+    }
+
     // Language switcher
     document.querySelectorAll('.lang-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {

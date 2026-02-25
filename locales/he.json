@@ -70,6 +70,19 @@
     "no_advanced_editing": "עריכה מתקדמת.",
     "hope_helpful": "מקווים שהכלי יהיה לכם לעזר!"
   },
+  "translation": {
+    "title": "תרגום כתוביות",
+    "google_btn": "🌐 Google Translate",
+    "ai_btn": "🤖 תרגם עם AI",
+    "download_translated": "⬇️ הורד כתוביות מתורגמות (SRT)",
+    "ai_instructions": "העתק את הפרומפט, הדבק בצ'אט ה-AI שבחרת, ואז הדבק את התגובה בתיבה למטה:",
+    "copy_prompt": "📋 העתק פרומפט",
+    "ai_placeholder": "הדבק כאן את תגובת ה-AI...",
+    "download_ai": "⬇️ הורד כקובץ SRT",
+    "translating": "מתרגם...",
+    "translation_done": "התרגום הושלם! ✓",
+    "translation_error": "שגיאה בתרגום"
+  },
   "notification": {
     "title": "התמלול הושלם!",
     "body": "קובץ הכתוביות מוכן להורדה"

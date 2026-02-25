@@ -70,6 +70,19 @@
     "no_advanced_editing": "Advanced editing.",
     "hope_helpful": "We hope the tool will be helpful to you!"
   },
+  "translation": {
+    "title": "Translate Subtitles",
+    "google_btn": "🌐 Google Translate",
+    "ai_btn": "🤖 Translate with AI",
+    "download_translated": "⬇️ Download Translated Subtitles (SRT)",
+    "ai_instructions": "Copy the prompt, paste it into your chosen AI chat, then paste the response in the box below:",
+    "copy_prompt": "📋 Copy Prompt",
+    "ai_placeholder": "Paste the AI response here...",
+    "download_ai": "⬇️ Download as SRT",
+    "translating": "Translating...",
+    "translation_done": "Translation complete! ✓",
+    "translation_error": "Translation error"
+  },
   "notification": {
     "title": "Transcription Complete!",
     "body": "Your subtitle file is ready to download"

@@ -68,6 +68,46 @@
         <button id="copySrtButton" class="copy-button" style="display: none; margin-left: 15px;" data-i18n="download.copy_content">העתק תוכן</button>
     </div>
 
+    <div id="translationSection" style="display: none; margin-top: 15px;">
+        <div class="translation-header">
+            <span data-i18n="translation.title">תרגום כתוביות</span>
+        </div>
+        <div class="translation-controls">
+            <select id="targetLangSelect" class="target-lang-select">
+                <option value="he">עברית</option>
+                <option value="en">English</option>
+                <option value="ar">ערבית</option>
+                <option value="ru">Русский</option>
+                <option value="es">Español</option>
+                <option value="fr">Français</option>
+                <option value="de">Deutsch</option>
+                <option value="pt">Português</option>
+                <option value="zh-CN">中文</option>
+                <option value="ja">日本語</option>
+                <option value="tr">Türkçe</option>
+            </select>
+            <div class="translation-buttons-row">
+                <button id="translateGoogleBtn" data-i18n="translation.google_btn">🌐 Google Translate</button>
+                <button id="translateAiBtn" data-i18n="translation.ai_btn">🤖 תרגם עם AI</button>
+            </div>
+        </div>
+
+        <div id="googleTranslateStatus" style="display: none;"></div>
+        <a id="downloadTranslatedSrtLink" class="translated-download-link" style="display: none;" data-i18n="translation.download_translated">⬇️ הורד כתוביות מתורגמות (SRT)</a>
+
+        <div id="aiTranslationPanel" style="display: none;">
+            <p class="ai-instructions" data-i18n="translation.ai_instructions">העתק את הפרומפט, הדבק בצ'אט ה-AI שבחרת, ואז הדבק את התגובה בתיבה למטה:</p>
+            <div class="ai-service-buttons">
+                <button id="openClaudeBtn" class="ai-service-btn">Claude</button>
+                <button id="openGeminiBtn" class="ai-service-btn">Gemini</button>
+                <button id="openChatgptBtn" class="ai-service-btn">ChatGPT</button>
+                <button id="copyTranslationPromptBtn" class="ai-service-btn" data-i18n="translation.copy_prompt">📋 העתק פרומפט</button>
+            </div>
+            <textarea id="aiResponseTextarea" class="ai-textarea" rows="7" data-i18n-placeholder="translation.ai_placeholder"></textarea>
+            <a id="downloadAiTranslatedLink" class="translated-download-link" style="display: none;" data-i18n="translation.download_ai">⬇️ הורד כקובץ SRT</a>
+        </div>
+    </div>
+
     <hr style="margin-top: 30px;">
 
     <div class="clarifications">
