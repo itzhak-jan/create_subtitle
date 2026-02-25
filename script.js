@@ -179,7 +179,7 @@ class ProgressManager {
             if (estimated > 5) {
                 const minutes = Math.floor(estimated / 60);
                 const seconds = Math.floor(estimated % 60);
-                timeElement.textContent = `זמן משוער: ${minutes > 0 ? minutes + 'm ' : ''}${seconds}s`;
+                timeElement.textContent = `${getTranslation('estimated_time_label', 'זמן משוער')}: ${minutes > 0 ? minutes + 'm ' : ''}${seconds}s`;
             }
         }
     }
@@ -630,7 +630,7 @@ async function startTranscription() {
         
     } catch (error) {
         if (processingCancelled) {
-            updateStatus('התהליך בוטל', false);
+            updateStatus(getTranslation('cancelled', 'התהליך בוטל'), false);
         } else {
             console.error("Transcription error:", error);
             updateStatus(
@@ -745,7 +745,7 @@ function setupEventListeners() {
     if (elements.cancelButton) {
         elements.cancelButton.addEventListener('click', () => {
             processingCancelled = true;
-            updateStatus('מבטל תהליך...');
+            updateStatus(getTranslation('cancelling', 'מבטל תהליך...'));
         });
     }
     

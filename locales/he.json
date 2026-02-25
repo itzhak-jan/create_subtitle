@@ -19,6 +19,10 @@
     "es": "ספרדית (Spanish)",
     "it": "איטלקית (Italian)"
   },
+  "cancel_button": "בטל תהליך",
+  "cancelling": "מבטל תהליך...",
+  "cancelled": "התהליך בוטל",
+  "estimated_time_label": "זמן משוער",
   "status_messages": {
     "loading_model": "טוען מודל שפה...",
     "select_file": "אנא בחר קובץ ובחר שפה.",
