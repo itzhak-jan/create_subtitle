@@ -17,6 +17,7 @@ let currentSrtContent = '';
 let sharedBlobUrlToRevoke = null;
 let processingCancelled = false;
 let startTime = null;
+let isActivelyProcessing = false;
 let currentLanguage = 'he';
 let translations = {};
 
@@ -198,7 +199,7 @@ function updateStatus(text, isError = false, isSuccess = false) {
         elements.status.classList.add('error');
     } else if (isSuccess) {
         elements.status.classList.add('success');
-    } else if (text.includes('טוען') || text.includes('מעבד') || text.includes('Loading') || text.includes('Processing')) {
+    } else if (isActivelyProcessing) {
         elements.status.classList.add('processing');
     }
 }
@@ -542,6 +543,7 @@ async function startTranscription() {
     processingCancelled = false;
     currentSrtContent = '';
     startTime = Date.now();
+    isActivelyProcessing = true;
     
     // Update UI
     setControlsState(false);
@@ -565,11 +567,6 @@ async function startTranscription() {
         
         const audioData = await extractAndResampleAudio(selectedFile);
         if (!audioData || processingCancelled) return;
-        
-        // Validate audio data
-        if (!audioData.every(Number.isFinite)) {
-            throw new Error(getTranslation('errors.corrupted_audio', 'נתוני אודיו פגומים'));
-        }
         
         // Start transcription
         const langOpt = elements.languageSelect.value;
@@ -627,7 +624,13 @@ async function startTranscription() {
         updateStatus(getTranslation('status_messages.completed', 'התמלול הושלם!'), false, true);
         
         showDownloadSection();
-        
+
+        if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+            new Notification(getTranslation('notification.title', 'התמלול הושלם!'), {
+                body: getTranslation('notification.body', 'קובץ הכתוביות מוכן להורדה')
+            });
+        }
+
     } catch (error) {
         if (processingCancelled) {
             updateStatus(getTranslation('cancelled', 'התהליך בוטל'), false);
@@ -641,6 +644,7 @@ async function startTranscription() {
         hideDownloadSection();
         currentSrtContent = '';
     } finally {
+        isActivelyProcessing = false;
         // Clean up
         progressManager.hide();
         if (elements.cancelButton) {
@@ -857,7 +861,12 @@ async function initializeApp() {
     
     // Setup event listeners
     setupEventListeners();
-    
+
+    // Request notification permission for completion alerts
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+
     // Initialize UI state
     setControlsState(false);
     elements.startButton.disabled = true;

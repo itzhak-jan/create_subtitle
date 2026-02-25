@@ -70,6 +70,10 @@
     "no_advanced_editing": "עריכה מתקדמת.",
     "hope_helpful": "מקווים שהכלי יהיה לכם לעזר!"
   },
+  "notification": {
+    "title": "התמלול הושלם!",
+    "body": "קובץ הכתוביות מוכן להורדה"
+  },
   "errors": {
     "critical_error": "שגיאה קריטית: רכיבי דף חסרים.",
     "audio_context_error": "שגיאה ביצירת הקשר אודיו",
